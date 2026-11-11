@@ -32,6 +32,21 @@
             <button class="pcard__logout" type="button" @click="$emit('logout')">退出登录</button>
           </div>
 
+          <!-- 钱包：小镇里的金币、体力与藏书 -->
+          <div class="purse">
+            <span class="purse__item">
+              <i class="purse__coin">¥</i><b>{{ wallet.money }}</b><em>金币</em>
+            </span>
+            <span class="purse__item">
+              <b>{{ wallet.energy }}</b><em>/{{ wallet.energyMax }} 体力</em>
+            </span>
+            <span class="purse__item">
+              <b>{{ wallet.ownedCount }}</b><em>本藏书</em>
+            </span>
+            <button class="purse__go" type="button" @click="$emit('navigate', 'home')">逛书店 →</button>
+            <button class="purse__go purse__go--ghost" type="button" @click="$emit('navigate', 'store')">去打工</button>
+          </div>
+
           <!-- 统计 -->
           <div class="stats">
             <button class="stat" type="button" @click="$emit('navigate', 'favorites')">
@@ -46,7 +61,7 @@
               <b>{{ profile.stats.likes }}</b>
               <span>点赞</span>
             </div>
-            <button class="stat" type="button" @click="$emit('navigate', 'game')">
+            <button class="stat" type="button" @click="$emit('navigate', 'gamehome')">
               <b>{{ profile.game.best }}</b>
               <span>游戏最高分</span>
             </button>
@@ -57,7 +72,7 @@
           </p>
           <p class="pcard__game pcard__game--muted" v-else>
             还没有游戏记录，去接一捧樱瓣吧 →
-            <button class="pcard__link" type="button" @click="$emit('navigate', 'game')">开始游戏</button>
+            <button class="pcard__link" type="button" @click="$emit('navigate', 'gamehome')">回家开机</button>
           </p>
         </template>
       </section>
@@ -141,6 +156,7 @@ import StateBlock from './StateBlocks.vue'
 import { fetchProfile } from '../api/profile'
 import { fetchHistory, removeHistory, clearHistory } from '../api/history'
 import { toast } from '../composables/useToast'
+import { useEconomy } from '../composables/useEconomy'
 
 const props = defineProps({
   user: { type: Object, default: null }
@@ -154,6 +170,11 @@ const emptyProfile = {
 }
 
 const profile = ref(emptyProfile)
+
+// 小镇钱包：金币 / 体力 / 藏书（和个人数据一起展示）
+const { wallet, refresh: refreshWallet, startTicker } = useEconomy()
+
+// 小镇钱包：金币 / 体力 / 藏书（和个人数据一起展示）
 const loading = ref(false)
 const error = ref('')
 
@@ -245,6 +266,8 @@ function onGo (key) {
 }
 
 onMounted(() => {
+  refreshWallet()
+  startTicker()
   load()
   loadHistory(1)
 })
@@ -325,6 +348,59 @@ onMounted(() => {
   background: var(--sakura-50);
   transform: translateY(-1px);
 }
+
+.purse {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 18px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: linear-gradient(120deg, #fffaf2, #fff5f8);
+  border: 1px solid rgba(240, 181, 86, .26);
+}
+.purse__item { display: inline-flex; align-items: baseline; gap: 5px; }
+.purse__item b {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.purse__item em { font-style: normal; font-size: 10.5px; color: var(--faint); letter-spacing: .04em; }
+.purse__coin {
+  width: 16px;
+  height: 16px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  font-style: normal;
+  font-size: 9px;
+  color: #7a5a24;
+  background: radial-gradient(circle at 34% 28%, #fff4d4, #f0c976 58%, #d9a94f);
+  align-self: center;
+}
+.purse__go {
+  margin-left: auto;
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 9px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11.5px;
+  color: #fff;
+  background: linear-gradient(120deg, var(--sakura-500), var(--sakura-600));
+  box-shadow: 0 10px 20px -14px rgba(232, 84, 127, .95);
+}
+.purse__go--ghost {
+  margin-left: 0;
+  color: var(--sakura-700);
+  background: var(--sakura-50);
+  border: 1px solid var(--sakura-200);
+  box-shadow: none;
+}
+.purse__go:hover { transform: translateY(-1px); }
 
 .stats {
   margin-top: 22px;

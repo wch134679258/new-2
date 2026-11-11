@@ -39,7 +39,7 @@
         </div>
 
         <!-- 书架 -->
-        <button class="shelf" type="button" aria-label="看看我的书架" @click="shelfOpen = true">
+        <button class="shelf" type="button" aria-label="看看我的书架" @click="openShelf">
           <span class="shelf__row" v-for="r in 3" :key="r">
             <i
               v-for="(b, i) in shelfRow(r)"
@@ -200,7 +200,10 @@
               <button class="shelf-drawer__close" type="button" @click="shelfOpen = false">✕</button>
             </header>
 
-            <div v-if="shelfLoading" class="shelf-drawer__empty">正在数书…</div>
+            <div v-if="!user" class="shelf-drawer__empty">
+              先登录，书架才认得你的名字。
+            </div>
+            <div v-else-if="shelfLoading" class="shelf-drawer__empty">正在数书…</div>
             <div v-else-if="!shelfBooks.length" class="shelf-drawer__empty">
               书架还空着。<br />去书店挑一本吧，书脊会替你记住这个下午。
             </div>
@@ -232,7 +235,6 @@ import SpaceSnake from './SpaceSnake.vue'
 import TetrisPage from './TetrisPage.vue'
 import FishGamePage from './FishGamePage.vue'
 import { useEconomy } from '../composables/useEconomy'
-import { refreshOwned } from '../composables/useEconomy'
 import { searchArticles } from '../api/search'
 import { toast } from '../composables/useToast'
 
@@ -241,7 +243,7 @@ const props = defineProps({
 })
 const emit = defineEmits(['navigate', 'logout', 'open-article'])
 
-const { wallet, sleep, refresh, startTicker, hasOwned } = useEconomy()
+const { wallet, sleep, refresh, startTicker, hasOwned, refreshOwned } = useEconomy()
 
 const GAMES = [
   { key: 'snake', label: '花瓣贪吃蛇', icon: '🐍' },
@@ -297,6 +299,12 @@ async function loadShelf () {
   }
 }
 
+/** 打开书架：第一次打开时去拉已购书目，之后复用缓存 */
+function openShelf () {
+  shelfOpen.value = true
+  if (!shelfBooks.value.length) loadShelf()
+}
+
 function openBook (id) {
   shelfOpen.value = false
   emit('open-article', id)
@@ -333,8 +341,6 @@ onMounted(() => {
   refresh()
   startTicker()
   refreshOwned().catch(() => {})
-  // 书架抽屉按需加载，这里先不请求
-  void loadShelf
 })
 </script>
 
