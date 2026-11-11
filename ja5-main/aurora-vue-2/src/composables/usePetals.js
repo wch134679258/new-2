@@ -11,7 +11,7 @@
 //   2. DPR 上限 2；移动端自动降密度（系数 0.7）与 DPR（1.5）。
 //   3. 固定步长积分 + dt 上限 32ms，切后台 pause、回前台不补帧。
 //   4. 自适应画质：滑动平均帧时长 > 22ms 持续 60 帧就减花瓣数，保帧率不保数量。
-//   5. prefers-reduced-motion 直接不启动。
+//   5. 站点动效关闭（useMotion 判定）直接不启动。
 //
 //  物理：
 //   - 匀速沉降（深度决定速度）+ 正弦侧摆（每片独立频率/相位/振幅）
@@ -19,6 +19,8 @@
 //   - 指针风场：由指针速度矢量驱动的高斯衰减力场，带惯性；
 //     停止移动后力场在 ~600ms 内自然衰减归零，花瓣回到原来的轨迹
 // ============================================================
+
+import { motionEnabled } from './useMotion'
 
 /** 配色：低饱和淡粉 / 近白 / 淡薰衣草。整站不走艳粉 */
 const TONES = [
@@ -105,7 +107,9 @@ function buildSprites (base) {
 }
 
 export function createPetalField (canvas, opts = {}) {
-  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  // 动效开关统一走 useMotion：默认开启，只有显式关闭时才不启动
+  // （不要直接用 prefers-reduced-motion —— 系统关掉动画时整站花瓣会一起消失）
+  const reduce = !motionEnabled()
   const mobile = window.matchMedia('(max-width: 720px)').matches
   const opt = {
     density: mobile ? 0.00006 : 0.000085, // 每平方像素花瓣数；移动端更低

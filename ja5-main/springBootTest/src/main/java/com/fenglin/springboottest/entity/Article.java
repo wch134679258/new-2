@@ -39,6 +39,9 @@ public class Article {
     /** 浏览量 */
     private Integer views;
 
+    /** 书店售价（金币）；0 表示免费试读本，无需购买即可读全文 */
+    private Integer price;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
@@ -113,6 +116,14 @@ public class Article {
 
     public void setViews(Integer views) {
         this.views = views;
+    }
+
+    public Integer getPrice() {
+        return price;
+    }
+
+    public void setPrice(Integer price) {
+        this.price = price;
     }
 
     public LocalDateTime getCreatedAt() {

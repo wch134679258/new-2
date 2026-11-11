@@ -120,11 +120,61 @@
         <path d="M744 551c-15 35 24 62 16 105M765 675c-14 35-42 57-53 95" fill="none"
               stroke="#fff2e8" stroke-width="4" stroke-dasharray="2 18" stroke-linecap="round" opacity=".6" />
 
-        <!-- 小镇木屋 -->
-        <use href="#house" transform="translate(54 490) scale(1.12)" />
-        <use href="#house" transform="translate(244 563) scale(.74)" />
-        <use href="#house" transform="translate(1170 476) scale(1.04)" />
-        <use href="#house" transform="translate(1064 580) scale(.66)" />
+        <!-- 小镇木屋：四栋都是能进去的店，鼠标移上去会亮招牌 -->
+        <g class="venue" role="button" tabindex="0" aria-label="进入樱花书店"
+           @click="go('home')" @keyup.enter="go('home')">
+          <use href="#house" transform="translate(54 490) scale(1.12)" />
+          <g class="venue__sign" transform="translate(124 700)">
+            <rect x="-52" y="-28" width="104" height="34" rx="15" />
+            <text class="venue__cn" y="-7">书店</text>
+            <text class="venue__en" y="6">BOOKSTORE</text>
+          </g>
+        </g>
+
+        <g class="venue" role="button" tabindex="0" aria-label="进入灯花便利店"
+           @click="go('store')" @keyup.enter="go('store')">
+          <use href="#house" transform="translate(244 563) scale(.74)" />
+          <g class="venue__sign" transform="translate(302 560)">
+            <rect x="-56" y="-30" width="112" height="36" rx="16" />
+            <text class="venue__cn" y="-8">便利店</text>
+            <text class="venue__en" y="6">STORE 24H</text>
+          </g>
+        </g>
+
+        <g class="venue" role="button" tabindex="0" aria-label="回家"
+           @click="go('gamehome')" @keyup.enter="go('gamehome')">
+          <use href="#house" transform="translate(1170 476) scale(1.04)" />
+          <g class="venue__sign" transform="translate(1268 474)">
+            <rect x="-52" y="-30" width="104" height="36" rx="16" />
+            <text class="venue__cn" y="-8">家</text>
+            <text class="venue__en" y="6">MY ROOM</text>
+          </g>
+        </g>
+
+        <g class="venue" role="button" tabindex="0" aria-label="进入花见健身房"
+           @click="go('gym')" @keyup.enter="go('gym')">
+          <use href="#house" transform="translate(1064 580) scale(.66)" />
+          <g class="venue__sign" transform="translate(1116 576)">
+            <rect x="-52" y="-30" width="104" height="36" rx="16" />
+            <text class="venue__cn" y="-8">健身房</text>
+            <text class="venue__en" y="6">GYM</text>
+          </g>
+        </g>
+
+        <!-- 树下那张长椅：点它去公园 -->
+        <g class="venue venue--bench" role="button" tabindex="0" aria-label="去公园"
+           @click="go('park')" @keyup.enter="go('park')">
+          <ellipse cx="500" cy="742" rx="72" ry="8" fill="#6e5068" opacity=".15" />
+          <rect x="452" y="712" width="92" height="8" rx="4" fill="#c89b7e" />
+          <rect x="452" y="697" width="92" height="7" rx="3" fill="#d8ab8b" />
+          <rect x="462" y="720" width="6" height="18" rx="3" fill="#8b7160" />
+          <rect x="528" y="720" width="6" height="18" rx="3" fill="#8b7160" />
+          <g class="venue__sign" transform="translate(500 686)">
+            <rect x="-46" y="-28" width="92" height="32" rx="15" />
+            <text class="venue__cn" y="-7">公园</text>
+            <text class="venue__en" y="6">PARK</text>
+          </g>
+        </g>
 
         <!-- 木栅栏 -->
         <g stroke="#9b7784" stroke-width="5" stroke-linecap="round" opacity=".76">
@@ -197,6 +247,16 @@
 
       </svg>
 
+      <!-- 钱包胶囊：金币 / 体力，和各个店铺页面共用同一份状态 -->
+      <div class="town__wallet" aria-label="钱包状态">
+        <span class="tw__coin"><i>¥</i>{{ wallet.money }}</span>
+        <span class="tw__sep"></span>
+        <span class="tw__energy">
+          <b>{{ wallet.energy }}</b><i>/{{ wallet.energyMax }}</i>
+          <em>体力</em>
+        </span>
+      </div>
+
       <!-- 真实花瓣动画层 -->
       <canvas ref="petalCanvas" class="town__petals" aria-hidden="true"></canvas>
 
@@ -207,15 +267,18 @@
       <section class="town__intro">
         <p class="town__eyebrow"><span></span>SAKURA TOWN · 樱花小镇</p>
         <h1>在花落的<br /><em>小镇里，慢慢生活。</em></h1>
-        <p class="town__lede">远山很轻，街灯很暖。这里收着你的手记、故事和那些不急着完成的心情。</p>
+        <p class="town__lede">
+          远山很轻，街灯很暖。镇上有书店、便利店、健身房，还有一间你自己的小屋 ——
+          打工换金币，金币换书，书换一个安静的下午。
+        </p>
         <div class="town__actions">
-          <button class="town__primary" type="button" @click="$emit('navigate', 'home')">
-            走进手记馆
+          <button class="town__primary" type="button" @click="go('home')">
+            走进书店
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
               <path d="M5 12h14M13 6l6 6-6 6" />
             </svg>
           </button>
-          <button class="town__secondary" type="button" @click="$emit('navigate', 'discover')">沿街漫游</button>
+          <button class="town__secondary" type="button" @click="go('park')">去公园坐坐</button>
         </div>
         <p class="town__click-hint"><span>✦</span>轻点樱花树，让春风经过</p>
       </section>
@@ -227,12 +290,20 @@
 
 <script setup>
 import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { motionEnabled } from '../composables/useMotion'
+import { useEconomy } from '../composables/useEconomy'
 import SiteNav from './SiteNav.vue'
 
 defineProps({
   user: { type: Object, default: null }
 })
-defineEmits(['navigate', 'logout'])
+const emit = defineEmits(['navigate', 'logout'])
+
+// 金币 / 体力：和小镇其它页面共用同一份单例，逛一圈回来数字也是对的
+const { wallet, refresh: refreshWallet, startTicker } = useEconomy()
+
+/** 场景跳转：统一走 App.vue 的 navigate 事件 */
+function go (key) { emit('navigate', key) }
 
 // 使用固定随机种子，保证每次渲染的树冠都稳定
 function seeded (seed) {
@@ -309,7 +380,7 @@ let raf = null
 let lastTime = 0
 let resizeObserver = null
 let gustTimer = null
-let reduceMotion = false
+let reduceMotion = false  // 由站点动效开关决定（composables/useMotion.js）
 
 function random (min, max) {
   return min + Math.random() * (max - min)
@@ -431,9 +502,11 @@ function frame (time) {
 }
 
 onMounted(() => {
+  refreshWallet()
+  startTicker()
   sceneEl = petalCanvas.value
   canvasCtx = sceneEl.getContext('2d')
-  reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  reduceMotion = !motionEnabled()
   resize()
   resizeObserver = new ResizeObserver(resize)
   resizeObserver.observe(sceneEl)
@@ -500,6 +573,77 @@ onBeforeUnmount(() => {
   0%, 100% { transform: translateX(-10px); }
   50% { transform: translateX(28px); }
 }
+
+.venue { cursor: pointer; transform-box: fill-box; transform-origin: center bottom; transition: transform .35s var(--ease), filter .35s; }
+.venue:hover, .venue:focus-visible {
+  transform: translateY(-6px);
+  filter: drop-shadow(0 10px 16px rgba(90, 50, 80, .35));
+}
+.venue:focus { outline: none; }
+.venue:focus-visible .venue__sign rect { stroke: rgba(255, 255, 255, .95); stroke-width: 2; }
+.venue__sign rect {
+  fill: rgba(255, 252, 253, .92);
+  stroke: rgba(255, 255, 255, .8);
+  transition: fill .3s, stroke .3s;
+}
+.venue:hover .venue__sign rect, .venue:focus-visible .venue__sign rect { fill: #fff; }
+.venue__cn {
+  fill: #6b4864;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-anchor: middle;
+}
+.venue__en {
+  fill: rgba(140, 110, 130, .62);
+  font-size: 7.5px;
+  letter-spacing: .24em;
+  text-anchor: middle;
+}
+
+/* 钱包胶囊：悬在画面右上角 */
+.town__wallet {
+  position: absolute;
+  z-index: 6;
+  top: 16px;
+  right: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 252, 253, .78);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, .9);
+  box-shadow: 0 14px 30px -22px rgba(102, 64, 100, .8);
+}
+.tw__coin {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #8a5f27;
+  font-variant-numeric: tabular-nums;
+}
+.tw__coin i {
+  width: 17px;
+  height: 17px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-style: normal;
+  font-size: 9.5px;
+  color: #7a5a24;
+  background: radial-gradient(circle at 34% 28%, #fff4d4, #f0c976 58%, #d9a94f);
+}
+.tw__sep { width: 1px; height: 14px; background: rgba(140, 110, 130, .18); }
+.tw__energy { display: inline-flex; align-items: baseline; gap: 3px; font-variant-numeric: tabular-nums; }
+.tw__energy b { font-size: 13px; color: #6b4864; }
+.tw__energy i { font-style: normal; font-size: 10px; color: rgba(140, 110, 130, .7); }
+.tw__energy em { font-style: normal; font-size: 9px; letter-spacing: .1em; color: rgba(140, 110, 130, .6); margin-left: 2px; }
 
 .tree-hit {
   position: absolute;
@@ -646,7 +790,78 @@ onBeforeUnmount(() => {
   .town__lede { max-width: 390px; margin: 14px auto 0; font-size: 11.5px; }
   .town__actions { justify-content: center; margin-top: 18px; }
   .town__click-hint { justify-content: center; margin-top: 14px; }
-  .tree-hit { left: 15%; top: 29%; width: 70%; height: 55%; }
+  .venue { cursor: pointer; transform-box: fill-box; transform-origin: center bottom; transition: transform .35s var(--ease), filter .35s; }
+.venue:hover, .venue:focus-visible {
+  transform: translateY(-6px);
+  filter: drop-shadow(0 10px 16px rgba(90, 50, 80, .35));
+}
+.venue:focus { outline: none; }
+.venue:focus-visible .venue__sign rect { stroke: rgba(255, 255, 255, .95); stroke-width: 2; }
+.venue__sign rect {
+  fill: rgba(255, 252, 253, .92);
+  stroke: rgba(255, 255, 255, .8);
+  transition: fill .3s, stroke .3s;
+}
+.venue:hover .venue__sign rect, .venue:focus-visible .venue__sign rect { fill: #fff; }
+.venue__cn {
+  fill: #6b4864;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-anchor: middle;
+}
+.venue__en {
+  fill: rgba(140, 110, 130, .62);
+  font-size: 7.5px;
+  letter-spacing: .24em;
+  text-anchor: middle;
+}
+
+/* 钱包胶囊：悬在画面右上角 */
+.town__wallet {
+  position: absolute;
+  z-index: 6;
+  top: 16px;
+  right: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 252, 253, .78);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, .9);
+  box-shadow: 0 14px 30px -22px rgba(102, 64, 100, .8);
+}
+.tw__coin {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #8a5f27;
+  font-variant-numeric: tabular-nums;
+}
+.tw__coin i {
+  width: 17px;
+  height: 17px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-style: normal;
+  font-size: 9.5px;
+  color: #7a5a24;
+  background: radial-gradient(circle at 34% 28%, #fff4d4, #f0c976 58%, #d9a94f);
+}
+.tw__sep { width: 1px; height: 14px; background: rgba(140, 110, 130, .18); }
+.tw__energy { display: inline-flex; align-items: baseline; gap: 3px; font-variant-numeric: tabular-nums; }
+.tw__energy b { font-size: 13px; color: #6b4864; }
+.tw__energy i { font-style: normal; font-size: 10px; color: rgba(140, 110, 130, .7); }
+.tw__energy em { font-style: normal; font-size: 9px; letter-spacing: .1em; color: rgba(140, 110, 130, .6); margin-left: 2px; }
+
+.tree-hit { left: 15%; top: 29%; width: 70%; height: 55%; }
   .town__foot { right: 50%; transform: translateX(50%); white-space: nowrap; font-size: 7px; }
 }
 @media (max-width: 480px) {
@@ -656,8 +871,10 @@ onBeforeUnmount(() => {
   .town__primary, .town__secondary { height: 39px; font-size: 11px; }
   .town__click-hint { font-size: 9.5px; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .tree-art, .cloud, .town__click-hint span { animation: none; }
-  .town__primary, .town__secondary { transition: none; }
-}
+/* 动效关闭态由 <html class="no-motion"> 驱动，见 composables/useMotion.js */
+html.no-motion .tree-art,
+html.no-motion .cloud,
+html.no-motion .town__click-hint span { animation: none; }
+html.no-motion .town__primary,
+html.no-motion .town__secondary { transition: none; }
 </style>

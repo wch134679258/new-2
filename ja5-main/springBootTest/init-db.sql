@@ -26,6 +26,11 @@ CREATE TABLE IF NOT EXISTS `user` (
   `name`       VARCHAR(64)  NOT NULL COMMENT '昵称（唯一登录名）',
   `password`   VARCHAR(100) NOT NULL COMMENT 'BCrypt 加密后的密码（禁止明文）',
   `permission` TINYINT      NOT NULL DEFAULT 1 COMMENT '权限：1=默认用户，0=管理员',
+  `money`      INT          NOT NULL DEFAULT 120 COMMENT '金币余额',
+  `energy`     INT          NOT NULL DEFAULT 60 COMMENT '当前体力',
+  `energy_max` INT          NOT NULL DEFAULT 100 COMMENT '体力上限',
+  `energy_at`  DATETIME     NULL DEFAULT NULL COMMENT '体力恢复结算时间',
+  `last_sleep_date` DATE    NULL DEFAULT NULL COMMENT '上次睡觉日期',
   `created_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间',
   `updated_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -79,6 +84,7 @@ CREATE TABLE IF NOT EXISTS `article` (
   `category`    VARCHAR(64)  NOT NULL DEFAULT '' COMMENT '一级分类名（冗余，便于展示）',
   `tags`        VARCHAR(255) NOT NULL DEFAULT '' COMMENT '标签名逗号分隔（冗余，用于模糊命中）',
   `views`       INT          NOT NULL DEFAULT 0 COMMENT '浏览量（热度）',
+  `price`       INT          NOT NULL DEFAULT 20 COMMENT '书店售价，0 为免费试读本',
   `created_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发布时间',
   `updated_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -213,5 +219,34 @@ JOIN (
   UNION ALL SELECT '从零搭建一套前后端分离的个人项目', 'Vue'
 ) AS m ON m.title = a.title
 JOIN `tag` t ON t.name = m.tn;
+
+-- ============================================================
+-- 书店：已购书目
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `purchase` (
+  `id`         BIGINT   NOT NULL AUTO_INCREMENT,
+  `user_id`    BIGINT   NOT NULL COMMENT '买家',
+  `article_id` BIGINT   NOT NULL COMMENT '书目',
+  `price`      INT      NOT NULL DEFAULT 0 COMMENT '成交价快照',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_article` (`user_id`, `article_id`),
+  KEY `idx_purchase_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='书店已购书目';
+
+-- ============================================================
+-- 金币流水（便利店工资 / 买书 / 训练 / 游戏奖励）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `coin_log` (
+  `id`         BIGINT       NOT NULL AUTO_INCREMENT,
+  `user_id`    BIGINT       NOT NULL,
+  `delta`      INT          NOT NULL COMMENT '正数入账，负数出账',
+  `balance`    INT          NOT NULL COMMENT '这笔之后余额',
+  `reason`     VARCHAR(32)  NOT NULL COMMENT 'book/store/gym/game/sleep',
+  `detail`     VARCHAR(128) NULL COMMENT '可读说明',
+  `created_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_coin_user_time` (`user_id`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='金币流水';
 
 SELECT 'init ok' AS result;

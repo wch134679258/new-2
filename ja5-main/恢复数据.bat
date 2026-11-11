@@ -37,6 +37,7 @@ echo [1/4] 建库建表 + 内容迁移...for %%f in (
   migrate-game-score.sql
   migrate-history-like.sql
   migrate-article-content.sql
+  migrate-economy.sql
 ) do (
   echo   - %%f
   if "%%f"=="init-db.sql" (

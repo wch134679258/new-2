@@ -289,7 +289,6 @@ function shortDate (v) {
   .row__views { display: none; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .row { transition: none; }
-}
+/* 动效关闭态由 <html class="no-motion"> 驱动，见 composables/useMotion.js */
+html.no-motion .row { transition: none; }
 </style>

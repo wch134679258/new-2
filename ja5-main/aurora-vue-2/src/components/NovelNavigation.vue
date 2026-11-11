@@ -319,8 +319,8 @@ function openNovel (novel) {
   .novel-card { min-height: 218px; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .novel-nav__petal { display: none; }
-  .novel-card, .novel-card__button { transition: none; }
-}
+/* 动效关闭态由 <html class="no-motion"> 驱动，见 composables/useMotion.js */
+html.no-motion .novel-nav__petal { display: none; }
+html.no-motion .novel-card,
+html.no-motion .novel-card__button { transition: none; }
 </style>

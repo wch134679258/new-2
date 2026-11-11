@@ -794,6 +794,12 @@ body.view-home {
   .captcha-img { width: 82px; height: 36px; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+/* 动效关闭态：由 composables/useMotion.js 给 <html> 挂 .no-motion。
+   不再用 @media (prefers-reduced-motion)：系统关掉「动画效果」时（远程桌面 /
+   Windows Server 默认如此）那会把整站动效一并枪毙，看起来就像页面坏了。
+   这个站的视觉本身就依赖动画，默认必须开，关闭交给用户显式选择。 */
+html.no-motion * {
+  animation-duration: .01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: .01ms !important;
 }

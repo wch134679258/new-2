@@ -1,15 +1,15 @@
 <template>
-  <div class="page">
-    <SiteNav :user="user" active="game" @go="$emit('navigate', $event)" @logout="$emit('logout')" />
+  <div class="page" :class="{ 'page--embed': embedded }">
+    <SiteNav v-if="!embedded" :user="user" active="game" @go="$emit('navigate', $event)" @logout="$emit('logout')" />
 
     <main class="subpage main">
-      <header class="subhead">
+      <header v-if="!embedded" class="subhead">
         <span class="subhead__tag">Game</span>
         <h1>樱海大鱼</h1>
         <p>游进落满花瓣的夜海，吃掉比自己小的鱼慢慢长大，也要记得躲开比你更大的影子。</p>
       </header>
 
-      <GameSwitch active="fish" @select="$emit('navigate', $event)" />
+      <GameSwitch v-if="!embedded" active="fish" @select="$emit('navigate', $event)" />
 
       <section class="stage">
         <div class="hud">
@@ -119,9 +119,13 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import SiteNav from './SiteNav.vue'
 import GameSwitch from './GameSwitch.vue'
+import { gameReward } from '../composables/useEconomy'
+import { toast } from '../composables/useToast'
 
-defineProps({
-  user: { type: Object, default: null }
+const props = defineProps({
+  user: { type: Object, default: null },
+  /** 内嵌模式：放在「家」的书桌笔记本里时隐藏站点导航与页头 */
+  embedded: { type: Boolean, default: false }
 })
 defineEmits(['navigate', 'logout'])
 
@@ -258,6 +262,7 @@ function start () {
   maxSize.value = 26
   level.value = 1
   isNewRecord.value = false
+  rewardedRound = false
   invincible = 0
   shake = 0
   flash = 0
@@ -286,6 +291,19 @@ function gameOver () {
     best.value = score.value
     localStorage.setItem(BEST_KEY, String(best.value))
   }
+  awardCoins()
+}
+
+/* ---- 一局结束自动结算金币（每局只结一次） ---- */
+let rewardedRound = false
+async function awardCoins () {
+  if (!props.user || rewardedRound || score.value <= 0) return
+  rewardedRound = true
+  try {
+    const res = await gameReward('fish', score.value)
+    if (res && res.reward > 0) toast.success(`这一网捞到 ${res.reward} 金币`)
+    else if (res && res.capped) toast.info('今天的游戏收益已经到上限了')
+  } catch (_) { /* 静默 */ }
 }
 
 function eatFish (fish) {
@@ -908,5 +926,18 @@ onBeforeUnmount(() => {
   .ov { gap: 9px; }
   .ov__text { font-size: 11.5px; }
   .foot { flex-wrap: wrap; gap: 7px; }
+}
+
+/* 内嵌模式（家 · 笔记本）：不要站点导航与页头，只留游戏本体 */
+.page--embed {
+  position: relative;
+  z-index: 1;
+  min-height: 0;
+  padding: 0;
+  background: none;
+}
+.page--embed .subpage {
+  max-width: none;
+  padding: 10px 8px 18px;
 }
 </style>

@@ -1,10 +1,12 @@
 // 卡片 3D 倾斜 + 光标光斑逻辑
 import { ref } from 'vue'
+import { motionEnabled } from './useMotion'
 
 export function useTilt () {
   const card = ref(null)
   const spot = ref(null)
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
+  // 用站点开关而不是 prefers-reduced-motion：系统关动画时不该把倾斜一并关掉
+  const reduce = !motionEnabled()
   let raf = null
 
   function onMove (e) {

@@ -348,11 +348,13 @@ const bokehList = computed(() => {
     linear-gradient(200deg, rgba(255, 255, 255, .16), transparent 40%);
 }
 
-/* ---------- 低性能/减少动效：只留静态天光 ---------- */
-@media (prefers-reduced-motion: reduce) {
-  .ray, .bk, .cloud, .scene__sun, .scene__branch { animation: none !important; }
-  .ray { opacity: .2; }
-}
+/* ---------- 动效关闭态：只留静态天光（见 composables/useMotion.js） ---------- */
+html.no-motion .ray,
+html.no-motion .bk,
+html.no-motion .cloud,
+html.no-motion .scene__sun,
+html.no-motion .scene__branch { animation: none !important; }
+html.no-motion .ray { opacity: .2; }
 
 @media (max-width: 900px) {
   .scene__torii { right: 2%; bottom: 9vh; width: 44vw; opacity: .42; }

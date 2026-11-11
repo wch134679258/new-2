@@ -4,6 +4,7 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { motionEnabled } from '../composables/useMotion'
 
 const canvas = ref(null)
 let ctx = null
@@ -11,7 +12,8 @@ let W = 0, H = 0, dpr = 1, t = 0
 let parts = []
 let rafId = null
 
-const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
+// 站点动效开关（默认开启），见 composables/useMotion.js
+const reduce = !motionEnabled()
 const mouse = { x: -9999, y: -9999 }
 
 const BLOBS = [

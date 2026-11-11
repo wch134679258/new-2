@@ -1,15 +1,15 @@
 <template>
-  <div class="page">
-    <SiteNav :user="user" active="game" @go="$emit('navigate', $event)" @logout="$emit('logout')" />
+  <div class="page" :class="{ 'page--embed': embedded }">
+    <SiteNav v-if="!embedded" :user="user" active="game" @go="$emit('navigate', $event)" @logout="$emit('logout')" />
 
     <main class="subpage main">
-      <header class="subhead">
+      <header v-if="!embedded" class="subhead">
         <span class="subhead__tag">Game</span>
         <h1>樱落方块</h1>
         <p>让花瓣凝成的方块落满春夜，消除一行，就有一阵樱花掠过棋盘。</p>
       </header>
 
-      <GameSwitch active="tetris" @select="$emit('navigate', $event)" />
+      <GameSwitch v-if="!embedded" active="tetris" @select="$emit('navigate', $event)" />
 
       <section class="stage">
         <div class="hud">
@@ -120,9 +120,13 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import SiteNav from './SiteNav.vue'
 import GameSwitch from './GameSwitch.vue'
+import { gameReward } from '../composables/useEconomy'
+import { toast } from '../composables/useToast'
 
-defineProps({
-  user: { type: Object, default: null }
+const props = defineProps({
+  user: { type: Object, default: null },
+  /** 内嵌模式：放在「家」的书桌笔记本里时隐藏站点导航与页头 */
+  embedded: { type: Boolean, default: false }
 })
 defineEmits(['navigate', 'logout'])
 
@@ -333,6 +337,19 @@ function gameOver () {
     localStorage.setItem(BEST_KEY, String(best.value))
   }
   piece = null
+  awardCoins()
+}
+
+/* ---- 一局结束自动结算金币（每局只结一次） ---- */
+let rewardedRound = false
+async function awardCoins () {
+  if (!props.user || rewardedRound || score.value <= 0) return
+  rewardedRound = true
+  try {
+    const res = await gameReward('tetris', score.value)
+    if (res && res.reward > 0) toast.success(`消除换来 ${res.reward} 金币`)
+    else if (res && res.capped) toast.info('今天的游戏收益已经到上限了')
+  } catch (_) { /* 静默 */ }
 }
 
 function start () {
@@ -834,5 +851,18 @@ onBeforeUnmount(() => {
   .side { grid-template-columns: 1fr; }
   .rules-card { grid-column: auto; }
   .foot { flex-wrap: wrap; gap: 7px; }
+}
+
+/* 内嵌模式（家 · 笔记本）：不要站点导航与页头，只留游戏本体 */
+.page--embed {
+  position: relative;
+  z-index: 1;
+  min-height: 0;
+  padding: 0;
+  background: none;
+}
+.page--embed .subpage {
+  max-width: none;
+  padding: 10px 8px 18px;
 }
 </style>

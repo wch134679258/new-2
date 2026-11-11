@@ -172,7 +172,7 @@ defineEmits(['action'])
   box-shadow: 0 20px 32px -20px rgba(232, 84, 127, 1);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .sk__line, .sk__chip { animation: none; }
-}
+/* 动效关闭态由 <html class="no-motion"> 驱动，见 composables/useMotion.js */
+html.no-motion .sk__line,
+html.no-motion .sk__chip { animation: none; }
 </style>

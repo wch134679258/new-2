@@ -1,12 +1,14 @@
 // 极光 + 粒子星座背景 canvas 逻辑
 import { onMounted, onBeforeUnmount } from 'vue'
+import { motionEnabled } from './useMotion'
 
 export function useAurora (canvasRef) {
   let ctx = null
   let W = 0, H = 0, dpr = 1, t = 0
   let parts = []
   let rafId = null
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
+  // 站点动效开关（默认开启），见 useMotion.js
+  const reduce = !motionEnabled()
   const mouse = { x: -9999, y: -9999 }
 
   const BLOBS = [

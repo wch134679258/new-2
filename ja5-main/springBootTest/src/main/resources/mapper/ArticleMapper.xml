@@ -30,6 +30,7 @@
         <result property="category"   column="category"/>
         <result property="tags"       column="tags"/>
         <result property="views"      column="views"/>
+        <result property="price"      column="price"/>
         <result property="createdAt"  column="created_at"/>
         <result property="updatedAt"  column="updated_at"/>
     </resultMap>
@@ -117,7 +118,7 @@
     <!-- ================= 分页搜索 ================= -->
     <select id="search" resultMap="ArticleMap">
         SELECT a.id, a.title, a.summary, a.content, a.author,
-               a.category_id, a.category, a.tags, a.views, a.created_at, a.updated_at
+               a.category_id, a.category, a.tags, a.views, a.price, a.created_at, a.updated_at
         FROM article a
         <where>
             <include refid="keywordCond"/>
@@ -136,7 +137,7 @@
     -->
     <select id="selectRelatedByTags" resultMap="ArticleMap">
         SELECT a.id, a.title, a.summary, a.content, a.author,
-               a.category_id, a.category, a.tags, a.views, a.created_at, a.updated_at
+               a.category_id, a.category, a.tags, a.views, a.price, a.created_at, a.updated_at
         FROM article a
         JOIN article_tag at_r ON at_r.article_id = a.id
         WHERE at_r.tag_id IN (
@@ -151,7 +152,7 @@
     <!-- 同分类兜底：当前文章没有共享标签的文章时，按分类 + 热度推荐 -->
     <select id="selectRelatedByCategory" resultMap="ArticleMap">
         SELECT a.id, a.title, a.summary, a.content, a.author,
-               a.category_id, a.category, a.tags, a.views, a.created_at, a.updated_at
+               a.category_id, a.category, a.tags, a.views, a.price, a.created_at, a.updated_at
         FROM article a
         WHERE a.category_id = #{categoryId}
           AND a.id != #{id}

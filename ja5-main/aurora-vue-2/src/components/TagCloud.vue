@@ -108,7 +108,6 @@ function tagTitle (t) {
 .cloud__tag--s3::before,
 .cloud__tag--s4::before { opacity: .66; }
 
-@media (prefers-reduced-motion: reduce) {
-  .cloud__tag { transition: none; }
-}
+/* 动效关闭态由 <html class="no-motion"> 驱动，见 composables/useMotion.js */
+html.no-motion .cloud__tag { transition: none; }
 </style>

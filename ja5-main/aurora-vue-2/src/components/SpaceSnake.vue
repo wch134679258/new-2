@@ -1,15 +1,15 @@
 <template>
-  <div class="page">
-    <SiteNav :user="user" active="game" @go="$emit('navigate', $event)" @logout="$emit('logout')" />
+  <div class="page" :class="{ 'page--embed': embedded }">
+    <SiteNav v-if="!embedded" :user="user" active="game" @go="$emit('navigate', $event)" @logout="$emit('logout')" />
 
     <main class="subpage main">
-      <header class="subhead">
+      <header v-if="!embedded" class="subhead">
         <span class="subhead__tag">Game</span>
         <h1>花瓣贪吃蛇</h1>
         <p>在夜樱色的花田里追着飘落的花瓣跑 —— 撞上边栏或自己的尾巴，这一场春风就停了。</p>
       </header>
 
-      <GameSwitch active="game" @select="$emit('navigate', $event)" />
+      <GameSwitch v-if="!embedded" active="game" @select="$emit('navigate', $event)" />
 
       <!-- ============ 游戏区 ============ -->
       <section class="stage">
@@ -148,9 +148,13 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import SiteNav from './SiteNav.vue'
 import GameSwitch from './GameSwitch.vue'
 import { submitScore, fetchLeaderboard, fetchMyBest } from '../api/game'
+import { gameReward } from '../composables/useEconomy'
+import { toast } from '../composables/useToast'
 
 const props = defineProps({
-  user: { type: Object, default: null }
+  user: { type: Object, default: null },
+  /** 内嵌模式：放在「家」的书桌笔记本里时隐藏站点导航与页头 */
+  embedded: { type: Boolean, default: false }
 })
 defineEmits(['navigate', 'logout'])
 
@@ -264,6 +268,7 @@ function reset () {
   isNewRecord.value = false
   submitState.value = 'idle'
   submitMsg.value = ''
+  rewardedRound = false
 }
 
 function start () {
@@ -308,6 +313,7 @@ function spawnFood () {
 function win () {
   phase.value = 'over'
   G.flash = 1
+  awardCoins()
 }
 
 function die (headPx) {
@@ -321,6 +327,19 @@ function die (headPx) {
     isNewRecord.value = true
     localStorage.setItem(BEST_KEY, String(score.value))
   }
+  awardCoins()
+}
+
+/* ---- 一局结束自动结算金币（每局只结一次，成绩上传播放榜是另一条线） ---- */
+let rewardedRound = false
+async function awardCoins () {
+  if (!props.user || rewardedRound || score.value <= 0) return
+  rewardedRound = true
+  try {
+    const res = await gameReward('snake', score.value)
+    if (res && res.reward > 0) toast.success(`这一局换到 ${res.reward} 金币`)
+    else if (res && res.capped) toast.info('今天的游戏收益已经到上限了')
+  } catch (_) { /* 未登录或后端不可用：静默，不打断游戏 */ }
 }
 
 function step () {
@@ -1270,5 +1289,18 @@ onBeforeUnmount(() => {
   .hud__btns { border-left: 0; border-top: 1px solid var(--line-soft); justify-content: center; }
   .board { max-width: 100%; }
   .card { padding: 18px; }
+}
+
+/* 内嵌模式（家 · 笔记本）：不要站点导航与页头，只留游戏本体 */
+.page--embed {
+  position: relative;
+  z-index: 1;
+  min-height: 0;
+  padding: 0;
+  background: none;
+}
+.page--embed .subpage {
+  max-width: none;
+  padding: 10px 8px 18px;
 }
 </style>

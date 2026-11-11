@@ -3,7 +3,7 @@
   <header class="nav" :class="{ 'nav--solid': scrolled }">
     <div class="nav__bar">
       <!-- 品牌：一枚樱花 + 站名 -->
-      <a class="nav__brand" href="#" @click.prevent="$emit('go', 'home')">
+      <a class="nav__brand" href="#" @click.prevent="$emit('go', 'town')">
         <span class="mark" aria-hidden="true">
           <svg viewBox="0 0 32 32">
             <g class="mark__petals">
@@ -137,12 +137,19 @@ const props = defineProps({
 })
 const emit = defineEmits(['go', 'logout'])
 
+// 小镇地图：每个 key 对应一个场景（App.vue 里是同名的 view）
+//   home     书店（原手记馆，文章列表变成可购买的书）
+//   gamehome 家（小游戏搬进书桌的笔记本）
+//   store    便利店（打工赚金币）
+//   gym      健身房（花金币练体力上限）
+//   park     公园（长椅免费回一点体力 + 路边贩卖机）
 const menus = [
-  { key: 'town', label: '首页' },
-  { key: 'home', label: '手记馆' },
-  { key: 'discover', label: '漫游' },
-  { key: 'game', label: '小游戏' },
-  { key: 'favorites', label: '书签' },
+  { key: 'town', label: '小镇' },
+  { key: 'home', label: '书店' },
+  { key: 'gamehome', label: '家' },
+  { key: 'store', label: '便利店' },
+  { key: 'gym', label: '健身房' },
+  { key: 'park', label: '公园' },
   { key: 'profile', label: '我的' },
   { key: 'about', label: '关于' },
   { key: 'admin-login', label: '后台管理系统' }
@@ -304,10 +311,10 @@ onBeforeUnmount(() => {
   background: none;
   color: var(--muted);
   font: inherit;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 500;
-  letter-spacing: .06em;
-  padding: 10px 13px;
+  letter-spacing: .04em;
+  padding: 10px 10px;
   border-radius: 13px;
   cursor: pointer;
   transition: color .3s, background .3s;

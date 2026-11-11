@@ -578,7 +578,6 @@ defineExpose({ focus: () => inputEl.value && inputEl.value.focus() })
   .search__kbd { display: none; }
   .drop__foot { display: none; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .search.is-focus .search__glow { animation: none; }
-}
+/* 动效关闭态由 <html class="no-motion"> 驱动，见 composables/useMotion.js */
+html.no-motion .search.is-focus .search__glow { animation: none; }
 </style>

@@ -105,6 +105,7 @@
 <script setup>
 import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useAuthForm } from '../composables/useAuthForm'
+import { motionEnabled } from '../composables/useMotion'
 import AuthTabs from './AuthTabs.vue'
 import FormField from './FormField.vue'
 import PasswordField from './PasswordField.vue'
@@ -137,7 +138,8 @@ const pass2Field = ref(null)
 const codeField = ref(null)
 const fieldMap = { name: nameField, pass: passField, pass2: pass2Field, code: codeField }
 
-const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
+// 站点动效开关（默认开启），见 composables/useMotion.js
+const reduce = !motionEnabled()
 
 function syncHeight () {
   if (fields.value) fields.value.style.height = fields.value.scrollHeight + 'px'

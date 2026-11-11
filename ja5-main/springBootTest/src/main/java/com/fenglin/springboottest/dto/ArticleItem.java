@@ -22,13 +22,15 @@ public class ArticleItem {
     /** 标签数组（后端把逗号分隔的字符串拆好再返回） */
     private String[] tags;
     private Integer views;
+    /** 书店售价（金币）：0 表示免费试读本 */
+    private Integer price;
     /** 发布时间，格式 yyyy-MM-dd HH:mm */
     private String createdAt;
     /** 预估阅读时长（分钟） */
     private Integer minutes;
 
     public ArticleItem(Long id, String title, String summary, String author, String category,
-                       String[] tags, Integer views, String createdAt, Integer minutes) {
+                       String[] tags, Integer views, Integer price, String createdAt, Integer minutes) {
         this.id = id;
         this.title = title;
         this.summary = summary;
@@ -36,6 +38,7 @@ public class ArticleItem {
         this.category = category;
         this.tags = tags;
         this.views = views;
+        this.price = price;
         this.createdAt = createdAt;
         this.minutes = minutes;
     }
@@ -65,6 +68,7 @@ public class ArticleItem {
                 a.getCategory(),
                 splitTags(a.getTags()),
                 a.getViews(),
+                a.getPrice() == null ? 0 : a.getPrice(),
                 a.getCreatedAt() == null ? "" : a.getCreatedAt().format(FMT),
                 estimateMinutes(a.getContent())
         );
@@ -108,6 +112,10 @@ public class ArticleItem {
 
     public Integer getViews() {
         return views;
+    }
+
+    public Integer getPrice() {
+        return price;
     }
 
     public String getCreatedAt() {

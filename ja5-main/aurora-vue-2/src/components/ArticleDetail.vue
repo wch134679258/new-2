@@ -97,6 +97,36 @@
             <p v-for="(para, i) in paragraphs" :key="i">{{ para }}</p>
           </div>
 
+          <!-- 书店试读墙：没买下这本书时，正文只到这里 -->
+          <section v-if="article.locked" class="paywall">
+            <p class="paywall__fade" aria-hidden="true"></p>
+            <div class="paywall__card">
+              <span class="paywall__tag">SAKURA BOOKSTORE</span>
+              <h3>这片书页还夹在店里</h3>
+              <p class="paywall__lede">
+                已读到试读部分。全文约 {{ article.wordCount }} 字，买下后永久可读，
+                书架里也会留一本。
+              </p>
+              <div class="paywall__actions">
+                <button
+                  class="paywall__buy"
+                  type="button"
+                  :disabled="payBusy || (user && wallet.money < article.price)"
+                  @click="onBuy"
+                >
+                  <template v-if="payBusy">正在盖章…</template>
+                  <template v-else-if="!user">登录后购买</template>
+                  <template v-else-if="wallet.money < article.price">还差 {{ article.price - wallet.money }} 金币</template>
+                  <template v-else>买下它 · {{ article.price }} 金币</template>
+                </button>
+                <button class="paywall__ghost" type="button" @click="$emit('navigate', 'home')">回书店</button>
+              </div>
+              <p class="paywall__wallet">
+                当前余额 <b>{{ wallet.money }}</b> 金币 · 去便利店打工可以赚
+              </p>
+            </div>
+          </section>
+
           <footer v-if="article.tags && article.tags.length" class="paper__tags">
             <button
               v-for="t in article.tags"
@@ -146,6 +176,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import SiteNav from './SiteNav.vue'
 import { fetchArticle, fetchRelated } from '../api/article'
+import { useEconomy } from '../composables/useEconomy'
 import { addFavorite, removeFavorite } from '../api/favorites'
 import { addLike, removeLike } from '../api/likes'
 import { recordHistory } from '../api/history'
@@ -155,7 +186,27 @@ const props = defineProps({
   articleId: { type: [String, Number], required: true },
   user: { type: Object, default: null }
 })
-defineEmits(['back', 'open-article', 'open-category', 'open-tag', 'navigate', 'logout', 'need-login'])
+const emit = defineEmits(['back', 'open-article', 'open-category', 'open-tag', 'navigate', 'logout', 'need-login'])
+
+// 书店：买书解锁全文
+const { wallet, buy } = useEconomy()
+const payBusy = ref(false)
+
+async function onBuy () {
+  if (!article.value || payBusy.value) return
+  if (!props.user) { emit('need-login'); return }
+  payBusy.value = true
+  try {
+    await buy(article.value.id)
+    toast.success('已放进你的书架')
+    // 重新拉一次详情：这一次服务端会返回全文
+    await load()
+  } catch (e) {
+    toast.error((e && e.message) || '付款失败，请稍后再试')
+  } finally {
+    payBusy.value = false
+  }
+}
 
 const article = ref(null)
 const related = ref([])
@@ -634,4 +685,82 @@ watch(() => [props.user && props.user.id, props.articleId], ([uid, id]) => {
   .fav span { display: none; }
   .fav { padding: 0 13px; }
 }
+
+/* ---------- 书店试读墙 ---------- */
+.paywall { position: relative; margin: 26px 0 6px; }
+.paywall__fade {
+  height: 62px;
+  margin: -62px 0 0;
+  background: linear-gradient(180deg, rgba(255, 253, 253, 0), #fffdfd 82%);
+  pointer-events: none;
+}
+.paywall__card {
+  position: relative;
+  margin-top: 0;
+  padding: 24px 22px 20px;
+  border-radius: 18px;
+  text-align: center;
+  background:
+    radial-gradient(120% 100% at 50% 0%, rgba(255, 246, 250, .95), #fffafc 60%),
+    var(--porcelain);
+  border: 1px solid var(--sakura-200);
+  box-shadow: 0 22px 44px -30px rgba(197, 58, 100, .55);
+}
+.paywall__tag {
+  font-size: 9px;
+  letter-spacing: .3em;
+  color: var(--sakura-500);
+}
+.paywall__card h3 {
+  margin: 10px 0 8px;
+  font-family: var(--font-serif);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  color: var(--ink);
+}
+.paywall__lede {
+  margin: 0 auto 18px;
+  max-width: 420px;
+  font-size: 12.5px;
+  line-height: 1.9;
+  color: var(--muted);
+}
+.paywall__actions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.paywall__buy {
+  height: 42px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 13px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: .04em;
+  color: #fff;
+  background: linear-gradient(120deg, var(--sakura-500), var(--sakura-600));
+  box-shadow: 0 16px 30px -18px rgba(232, 84, 127, 1);
+  transition: transform .25s var(--ease), box-shadow .25s;
+}
+.paywall__buy:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 20px 34px -18px rgba(232, 84, 127, 1); }
+.paywall__buy:disabled {
+  color: var(--muted);
+  background: var(--paper-3);
+  box-shadow: none;
+  cursor: default;
+}
+.paywall__ghost {
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 13px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.paywall__ghost:hover { color: var(--sakura-700); border-color: var(--sakura-300); }
+.paywall__wallet { margin: 14px 0 0; font-size: 11px; color: var(--faint); letter-spacing: .03em; }
+.paywall__wallet b { color: var(--gold); font-variant-numeric: tabular-nums; }
 </style>

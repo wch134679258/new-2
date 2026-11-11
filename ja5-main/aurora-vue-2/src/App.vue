@@ -69,15 +69,47 @@
     @logout="doLogout"
   />
 
-  <!-- 原首页改为“手记馆”次页 -->
-  <HomePage
+  <!-- 书店：原「手记馆」的文章列表，改成可以买书的书架 -->
+  <BookstorePage
     v-else-if="view === 'home'"
     :user="user"
-    :initial-filter="homeFilter"
     @navigate="onNavigate"
     @open-article="openArticle"
     @logout="doLogout"
     @need-login="goAuth"
+  />
+
+  <!-- 家：小游戏搬进书桌的笔记本，床可以睡觉回体力 -->
+  <HomeRoomPage
+    v-else-if="view === 'gamehome'"
+    :user="user"
+    @navigate="onNavigate"
+    @open-article="openArticle"
+    @logout="doLogout"
+  />
+
+  <!-- 便利店：打工赚金币 -->
+  <ConvenienceStorePage
+    v-else-if="view === 'store'"
+    :user="user"
+    @navigate="onNavigate"
+    @logout="doLogout"
+  />
+
+  <!-- 健身房：花金币练体力上限 -->
+  <GymPage
+    v-else-if="view === 'gym'"
+    :user="user"
+    @navigate="onNavigate"
+    @logout="doLogout"
+  />
+
+  <!-- 公园：长椅歇脚 + 路边贩卖机 -->
+  <ParkPage
+    v-else-if="view === 'park'"
+    :user="user"
+    @navigate="onNavigate"
+    @logout="doLogout"
   />
 
   <ArticleDetail
@@ -173,7 +205,11 @@ import AuthPanel from './components/AuthPanel.vue'
 import AdminLoginPanel from './components/AdminLoginPanel.vue'
 import AdminConsole from './components/AdminConsole.vue'
 import SuccessOverlay from './components/SuccessOverlay.vue'
-import HomePage from './components/HomePage.vue'
+import BookstorePage from './components/BookstorePage.vue'
+import HomeRoomPage from './components/HomeRoomPage.vue'
+import ConvenienceStorePage from './components/ConvenienceStorePage.vue'
+import GymPage from './components/GymPage.vue'
+import ParkPage from './components/ParkPage.vue'
 import ArticleDetail from './components/ArticleDetail.vue'
 import FavoritesPage from './components/FavoritesPage.vue'
 import DiscoverPage from './components/DiscoverPage.vue'
@@ -196,9 +232,15 @@ const doneSub = ref('')
 /**
  * 视图状态机（无 vue-router）：
  *   auth 登录 / admin-login 后台登录 / admin 管理台
- *   town 樱花小镇（默认首页） / home 手记馆（原首页）
- *   article 详情 / favorites 收藏 / discover 发现 / profile 我的 / about 关于
- *   game 花瓣贪吃蛇 / tetris 樱落方块 / fish 樱海大鱼
+ *   town      樱花小镇（默认首页，四栋建筑可点）
+ *   home      书店（原手记馆，书可买可读）
+ *   gamehome  家（笔记本里玩小游戏 / 床睡觉）
+ *   store     便利店（打工赚金币）
+ *   gym       健身房（练体力上限 / 买蛋白饮）
+ *   park      公园（长椅回体力 / 贩卖机买饮料）
+ *   article   书籍详情 / profile 我的 / about 关于
+ *   favorites 我的收藏（从个人中心进） / discover 旧发现页（保留路由）
+ *   game / tetris / fish  三款小游戏的独立页（从家进入时是内嵌模式）
  */
 const view = ref('auth')
 const user = ref(null)
@@ -207,9 +249,9 @@ const articleId = ref(null)
 /** 登录页与后台登录页用夜色，保证表单可读性 */
 const night = computed(() => view.value === 'auth' || view.value === 'admin-login')
 
-const showFooter = computed(() => !['auth', 'admin-login', 'admin', 'town', 'game', 'tetris', 'fish'].includes(view.value))
+const showFooter = computed(() => !['auth', 'admin-login', 'admin', 'town', 'gamehome', 'game', 'tetris', 'fish'].includes(view.value))
 
-const homeFilter = ref(null)
+// 书店自己管理搜索 / 分类 / 分页，这里不再需要外部筛选参数
 
 watch(view, (v) => {
   document.body.classList.toggle('view-home', v !== 'auth' && v !== 'admin-login')
@@ -274,17 +316,17 @@ function goTown () {
   view.value = 'town'
 }
 
-function goHome (filter = null) {
-  homeFilter.value = filter ? { ...filter, _t: Date.now() } : null
+function goHome () {
   view.value = 'home'
 }
 
-function onOpenCategory (categoryId) {
-  goHome({ categoryId: categoryId || null })
+function onOpenCategory () {
+  // 书店是一级入口，分类筛选交给书店自己，这里直接回书店
+  view.value = 'home'
 }
 
-function onOpenTag (name) {
-  goHome({ tagName: name })
+function onOpenTag () {
+  view.value = 'home'
 }
 
 onMounted(async () => {
