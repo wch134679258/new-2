@@ -3,249 +3,332 @@
     <SiteNav :user="user" active="town" @go="$emit('navigate', $event)" @logout="$emit('logout')" />
 
     <main class="town" :class="{ 'town--gust': gusting }">
-      <!-- 天空、远山、小镇与樱花树全部由 SVG 绘制，离线也能完整显示 -->
-      <svg class="town__art" viewBox="0 0 1440 860" preserveAspectRatio="xMidYMid slice" role="img"
-           aria-label="粉紫色天空下，一棵巨大的樱花树坐落在木屋、街道和远山之间">
-        <defs>
-          <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stop-color="#c5b4e1" />
-            <stop offset=".42" stop-color="#efd0df" />
-            <stop offset=".74" stop-color="#f9e5dc" />
-            <stop offset="1" stop-color="#fff4e8" />
-          </linearGradient>
-          <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stop-color="#cfc5d3" />
-            <stop offset=".48" stop-color="#d9c8cc" />
-            <stop offset="1" stop-color="#9d91a7" />
-          </linearGradient>
-          <linearGradient id="road" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stop-color="#ead8d0" />
-            <stop offset="1" stop-color="#f4e3dc" />
-          </linearGradient>
-          <linearGradient id="trunk" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stop-color="#594153" />
-            <stop offset=".35" stop-color="#7b5861" />
-            <stop offset=".65" stop-color="#936b70" />
-            <stop offset="1" stop-color="#4c374c" />
-          </linearGradient>
-          <radialGradient id="canopy" cx=".45" cy=".38" r=".72">
-            <stop offset="0" stop-color="#ffe2ed" />
-            <stop offset=".45" stop-color="#efabc9" />
-            <stop offset=".78" stop-color="#d98bb8" />
-            <stop offset="1" stop-color="#b66c9f" />
-          </radialGradient>
-          <radialGradient id="lampGlow">
-            <stop offset="0" stop-color="#fff2c3" stop-opacity=".95" />
-            <stop offset=".24" stop-color="#ffe6b2" stop-opacity=".52" />
-            <stop offset="1" stop-color="#ffe6b2" stop-opacity="0" />
-          </radialGradient>
-          <filter id="softBlur"><feGaussianBlur stdDeviation="16" /></filter>
-          <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
-            <feGaussianBlur stdDeviation="8" result="blur" />
-            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
+      <!-- 天空底色：等距地图四周留出的天空由 CSS 负责，SVG 只画云 -->
+      <div class="town__sky" aria-hidden="true">
+        <i class="sky__sun"></i>
+      </div>
 
-          <g id="house">
-            <ellipse cx="90" cy="142" rx="94" ry="15" fill="#775870" opacity=".16" />
-            <rect x="22" y="55" width="136" height="92" rx="5" fill="#f3e2d7" />
-            <path d="M8 65 90 5l82 60Z" fill="#785b79" />
-            <path d="M22 61 90 13l68 48-9 5-59-41-59 41Z" fill="#9d718e" />
-            <path d="M31 63h119v10H31z" fill="#c89b9d" />
-            <rect x="76" y="93" width="29" height="54" rx="4" fill="#8e6574" />
-            <circle cx="99" cy="122" r="2.3" fill="#f9dca5" />
-            <rect x="35" y="82" width="27" height="27" rx="4" fill="#ffe3a8" />
-            <rect x="119" y="82" width="27" height="27" rx="4" fill="#ffe3a8" />
-            <path d="M48.5 82v27M35 95.5h27M132.5 82v27M119 95.5h27" stroke="#a3737d" stroke-width="3" />
-            <path d="M22 74h136M22 117h54M105 117h53" stroke="#b88891" stroke-width="4" opacity=".65" />
-            <path d="M30 72v75M150 72v75M67 72v10M116 72v10" stroke="#9e717e" stroke-width="4" />
-            <rect x="128" y="11" width="16" height="34" rx="2" fill="#856176" />
-            <path d="M126 11h20" stroke="#68495f" stroke-width="5" />
-            <path d="M43 145c9-20 20-20 29 0M123 145c9-22 21-22 30 0" fill="#9ca58d" />
+      <div ref="stageEl" class="town__stage" :style="stageStyle">
+        <!-- 整座小镇是一块浮在天空里的等距小岛，全部 2:1 斜轴投影手绘 -->
+        <svg
+          class="town__svg"
+          :viewBox="`${VBX} ${VBY} ${VBW} ${VBH}`"
+          preserveAspectRatio="xMidYMid meet"
+          role="img"
+          aria-label="俯瞰视角的樱花小镇：中央是喷泉广场，四周分布书店、便利店、健身房、公园和一栋小屋，每栋都可以点击进入"
+          @pointermove="onPointerMove"
+          @pointerleave="onPointerLeave"
+        >
+          <defs>
+            <linearGradient id="grassGrad" x1="0" y1="0" x2=".3" y2="1">
+              <stop offset="0" stop-color="#dbe6c4" />
+              <stop offset=".55" stop-color="#c7d7ad" />
+              <stop offset="1" stop-color="#aec493" />
+            </linearGradient>
+            <linearGradient id="cliffR" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#b79cae" />
+              <stop offset="1" stop-color="#8f7690" />
+            </linearGradient>
+            <linearGradient id="cliffL" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#9a7f99" />
+              <stop offset="1" stop-color="#74617d" />
+            </linearGradient>
+            <linearGradient id="bellyGrad" x1=".5" y1="0" x2=".5" y2="1">
+              <stop offset="0" stop-color="#83708a" />
+              <stop offset=".55" stop-color="#6f5c78" />
+              <stop offset="1" stop-color="#544660" />
+            </linearGradient>
+            <linearGradient id="pathGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#f6e8dd" />
+              <stop offset="1" stop-color="#e9d3cc" />
+            </linearGradient>
+            <radialGradient id="plazaGrad" cx=".38" cy=".3" r=".8">
+              <stop offset="0" stop-color="#f7ece4" />
+              <stop offset="1" stop-color="#e2cbc7" />
+            </radialGradient>
+            <radialGradient id="waterGrad" cx=".4" cy=".35" r=".8">
+              <stop offset="0" stop-color="#d8eef2" />
+              <stop offset=".6" stop-color="#a9d3de" />
+              <stop offset="1" stop-color="#8dbfce" />
+            </radialGradient>
+            <radialGradient id="canopy" cx=".38" cy=".3" r=".78">
+              <stop offset="0" stop-color="#ffe9ec" />
+              <stop offset=".5" stop-color="#ffcad6" />
+              <stop offset="1" stop-color="#f2a2b8" />
+            </radialGradient>
+            <radialGradient id="canopyLit" cx=".34" cy=".26" r=".8">
+              <stop offset="0" stop-color="#fff6f4" />
+              <stop offset=".55" stop-color="#ffdbe2" />
+              <stop offset="1" stop-color="#f7b3c4" />
+            </radialGradient>
+            <linearGradient id="fallGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#bfe3ef" />
+              <stop offset=".55" stop-color="#d7eef7" />
+              <stop offset="1" stop-color="#f2fbfe" stop-opacity=".25" />
+            </linearGradient>
+            <radialGradient id="lampGlow">
+              <stop offset="0" stop-color="#fff3c9" stop-opacity=".9" />
+              <stop offset=".35" stop-color="#ffe3ad" stop-opacity=".42" />
+              <stop offset="1" stop-color="#ffe3ad" stop-opacity="0" />
+            </radialGradient>
+            <radialGradient id="sunGlow">
+              <stop offset="0" stop-color="#fff5da" stop-opacity=".85" />
+              <stop offset="1" stop-color="#fff5da" stop-opacity="0" />
+            </radialGradient>
+            <filter id="blurSm" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="5" />
+            </filter>
+            <clipPath id="islandClip">
+              <path :d="island.grass" />
+            </clipPath>
+          </defs>
+
+          <!-- 天空里的云：落在岛后面，慢慢横移 -->
+          <g class="clouds" aria-hidden="true">
+            <g class="cloud cloud--a" fill="#fff9f6" opacity=".72">
+              <ellipse cx="196" cy="92" rx="86" ry="21" />
+              <ellipse cx="162" cy="82" rx="44" ry="24" />
+              <ellipse cx="228" cy="78" rx="52" ry="27" />
+            </g>
+            <g class="cloud cloud--b" fill="#fff7f4" opacity=".56">
+              <ellipse cx="762" cy="66" rx="96" ry="19" />
+              <ellipse cx="726" cy="56" rx="42" ry="22" />
+              <ellipse cx="800" cy="53" rx="50" ry="24" />
+            </g>
+            <g class="cloud cloud--c" fill="#fffaf7" opacity=".44">
+              <ellipse cx="520" cy="34" rx="72" ry="15" />
+              <ellipse cx="492" cy="27" rx="34" ry="18" />
+            </g>
           </g>
 
-          <g id="lamp">
-            <ellipse cx="0" cy="105" rx="17" ry="4" fill="#6e5068" opacity=".22" />
-            <path d="M0 104V22" stroke="#61465d" stroke-width="6" stroke-linecap="round" />
-            <path d="M0 26c0-17 14-18 22-18" fill="none" stroke="#61465d" stroke-width="4" />
-            <circle cx="24" cy="16" r="54" fill="url(#lampGlow)" />
-            <path d="m15 6 18 0-3 22H18Z" fill="#ffeab4" stroke="#72536a" stroke-width="2.5" />
-            <path d="M14 6h20M19 0h10" stroke="#72536a" stroke-width="3" stroke-linecap="round" />
-          </g>
-        </defs>
-
-        <!-- 天空 -->
-        <rect width="1440" height="860" fill="url(#sky)" />
-        <circle cx="1160" cy="132" r="90" fill="#fff0d4" opacity=".32" filter="url(#softBlur)" />
-        <circle cx="1160" cy="132" r="43" fill="#fff4dc" opacity=".8" />
-
-        <g class="cloud cloud--one" fill="#fff8f5" opacity=".6">
-          <ellipse cx="200" cy="150" rx="110" ry="29" />
-          <ellipse cx="156" cy="139" rx="56" ry="30" />
-          <ellipse cx="224" cy="130" rx="62" ry="37" />
-          <ellipse cx="280" cy="149" rx="65" ry="23" />
-        </g>
-        <g class="cloud cloud--two" fill="#fff5f3" opacity=".48">
-          <ellipse cx="1040" cy="234" rx="110" ry="22" />
-          <ellipse cx="1000" cy="221" rx="50" ry="26" />
-          <ellipse cx="1075" cy="217" rx="62" ry="28" />
-        </g>
-        <g class="cloud cloud--three" fill="#fff8f4" opacity=".36">
-          <ellipse cx="475" cy="106" rx="92" ry="19" />
-          <ellipse cx="450" cy="94" rx="42" ry="23" />
-          <ellipse cx="500" cy="91" rx="48" ry="25" />
-        </g>
-
-        <!-- 远山 -->
-        <path d="M0 395 155 268l108 84 182-177 147 143 166-127 132 124 174-147 162 168 214-94v301H0Z"
-              fill="#9d91b8" opacity=".42" />
-        <path d="m345 279 100-104 62 60-49-21-29 26-20-19Z" fill="#f5e6ec" opacity=".72" />
-        <path d="m787 309 58-53 62 58-38-18-25 17-22-15Z" fill="#f7e8ee" opacity=".62" />
-        <path d="M0 420c161-55 286-58 422-4s264 58 412 9 345-45 606 19v219H0Z" fill="#b8a4bf" opacity=".52" />
-        <path d="M0 474c168-49 296-35 452 14s289 43 435 0 349-45 553 13v205H0Z" fill="#c4b0c5" opacity=".7" />
-
-        <!-- 远景小镇 -->
-        <g opacity=".62">
-          <use href="#house" transform="translate(120 393) scale(.44)" />
-          <use href="#house" transform="translate(255 418) scale(.34)" />
-          <use href="#house" transform="translate(1100 386) scale(.43)" />
-          <use href="#house" transform="translate(1230 416) scale(.34)" />
-        </g>
-
-        <!-- 地面与蜿蜒街道 -->
-        <path d="M0 570c232-52 423-37 611-6s421 33 829-26v322H0Z" fill="url(#ground)" />
-        <path d="M620 860c21-128 108-152 125-204 17-53-19-88-5-123 32 21 94 26 125 1 9 52-19 89-6 128 14 46 92 99 140 198Z"
-              fill="#b99ba9" opacity=".35" />
-        <path d="M634 860c20-121 103-160 119-211 16-52-23-90-8-128 33 18 76 20 104-2 4 55-25 94-7 143 20 54 88 106 124 198Z"
-              fill="url(#road)" />
-        <path d="M744 551c-15 35 24 62 16 105M765 675c-14 35-42 57-53 95" fill="none"
-              stroke="#fff2e8" stroke-width="4" stroke-dasharray="2 18" stroke-linecap="round" opacity=".6" />
-
-        <!-- 小镇木屋：四栋都是能进去的店，鼠标移上去会亮招牌 -->
-        <g class="venue" role="button" tabindex="0" aria-label="进入樱花书店"
-           @click="go('home')" @keyup.enter="go('home')">
-          <use href="#house" transform="translate(54 490) scale(1.12)" />
-          <g class="venue__sign" transform="translate(124 700)">
-            <rect x="-52" y="-28" width="104" height="34" rx="15" />
-            <text class="venue__cn" y="-7">书店</text>
-            <text class="venue__en" y="6">BOOKSTORE</text>
-          </g>
-        </g>
-
-        <g class="venue" role="button" tabindex="0" aria-label="进入灯花便利店"
-           @click="go('store')" @keyup.enter="go('store')">
-          <use href="#house" transform="translate(244 563) scale(.74)" />
-          <g class="venue__sign" transform="translate(302 560)">
-            <rect x="-56" y="-30" width="112" height="36" rx="16" />
-            <text class="venue__cn" y="-8">便利店</text>
-            <text class="venue__en" y="6">STORE 24H</text>
-          </g>
-        </g>
-
-        <g class="venue" role="button" tabindex="0" aria-label="回家"
-           @click="go('gamehome')" @keyup.enter="go('gamehome')">
-          <use href="#house" transform="translate(1170 476) scale(1.04)" />
-          <g class="venue__sign" transform="translate(1268 474)">
-            <rect x="-52" y="-30" width="104" height="36" rx="16" />
-            <text class="venue__cn" y="-8">家</text>
-            <text class="venue__en" y="6">MY ROOM</text>
-          </g>
-        </g>
-
-        <g class="venue" role="button" tabindex="0" aria-label="进入花见健身房"
-           @click="go('gym')" @keyup.enter="go('gym')">
-          <use href="#house" transform="translate(1064 580) scale(.66)" />
-          <g class="venue__sign" transform="translate(1116 576)">
-            <rect x="-52" y="-30" width="104" height="36" rx="16" />
-            <text class="venue__cn" y="-8">健身房</text>
-            <text class="venue__en" y="6">GYM</text>
-          </g>
-        </g>
-
-        <!-- 树下那张长椅：点它去公园 -->
-        <g class="venue venue--bench" role="button" tabindex="0" aria-label="去公园"
-           @click="go('park')" @keyup.enter="go('park')">
-          <ellipse cx="500" cy="742" rx="72" ry="8" fill="#6e5068" opacity=".15" />
-          <rect x="452" y="712" width="92" height="8" rx="4" fill="#c89b7e" />
-          <rect x="452" y="697" width="92" height="7" rx="3" fill="#d8ab8b" />
-          <rect x="462" y="720" width="6" height="18" rx="3" fill="#8b7160" />
-          <rect x="528" y="720" width="6" height="18" rx="3" fill="#8b7160" />
-          <g class="venue__sign" transform="translate(500 686)">
-            <rect x="-46" y="-28" width="92" height="32" rx="15" />
-            <text class="venue__cn" y="-7">公园</text>
-            <text class="venue__en" y="6">PARK</text>
-          </g>
-        </g>
-
-        <!-- 木栅栏 -->
-        <g stroke="#9b7784" stroke-width="5" stroke-linecap="round" opacity=".76">
-          <path d="M0 695h285M0 722h285M1150 704h290M1150 731h290" />
-          <path d="M25 680v70M85 680v70M145 680v70M205 680v70M265 680v70M1185 688v70M1245 688v70M1305 688v70M1365 688v70" />
-        </g>
-
-        <!-- 樱花树阴影 -->
-        <ellipse cx="765" cy="748" rx="229" ry="40" fill="#745571" opacity=".18" filter="url(#softBlur)" />
-        <ellipse cx="765" cy="738" rx="142" ry="20" fill="#61435e" opacity=".19" />
-
-        <!-- 巨大的樱花树 -->
-        <g class="tree-art">
-          <!-- 树干与枝条 -->
-          <path d="M689 754c22-69 34-128 30-186-4-63-42-99-100-150l29-31c47 39 86 65 112 107 5-75-3-130-42-198l42-18c34 67 48 133 44 198 48-60 104-94 173-126l27 38c-78 44-134 97-164 163-4 72 9 136 35 205-58 15-120 16-186-2Z"
-                fill="url(#trunk)" />
-          <path d="M735 610c-52-73-129-126-236-175M762 532c57-75 133-121 246-160M759 481c-12-82-31-128-71-184M785 488c43-71 86-111 133-151"
-                fill="none" stroke="#795363" stroke-width="24" stroke-linecap="round" />
-          <path d="M731 711c10-75 8-135-3-182M761 693c-8-67-2-123 15-175" fill="none"
-                stroke="#bd8b8c" stroke-width="9" stroke-linecap="round" opacity=".55" />
-          <path d="M688 752c-29 6-49 18-70 32M826 752c34 5 60 16 83 31M747 754c-3 15-3 28-1 42"
-                fill="none" stroke="#6e4d60" stroke-width="17" stroke-linecap="round" />
-
-          <!-- 树冠底色 -->
-          <path d="M460 388c-54-54-25-125 42-151-7-67 57-120 120-101 39-76 133-83 185-24 74-42 157-6 172 64 78 0 126 69 105 132 68 30 86 109 36 159 24 74-40 129-110 119-41 57-125 63-176 18-62 51-153 32-179-33-78 34-159-7-164-78-73 6-121-54-99-113-38 5-68-1-88-14Z"
-                fill="url(#canopy)" opacity=".86" />
-
-          <!-- 细密花团，增加树冠层次 -->
-          <g>
-            <ellipse
-              v-for="b in blossoms"
-              :key="b.id"
-              :cx="b.x" :cy="b.y" :rx="b.rx" :ry="b.ry"
-              :fill="b.color" :opacity="b.opacity"
-              :transform="`rotate(${b.rot} ${b.x} ${b.y})`"
-            />
+          <!-- ---------- 小岛本体 ---------- -->
+          <g class="island">
+            <path :d="island.belly" fill="url(#bellyGrad)" />
+            <g class="island__rock" opacity=".28">
+              <path v-for="(d, i) in island.rockLines" :key="`rk${i}`" :d="d" fill="none"
+                    stroke="#4d3c54" stroke-width="1.4" stroke-linecap="round" />
+            </g>
+            <path :d="island.cliffLeft" fill="url(#cliffL)" />
+            <path :d="island.cliffRight" fill="url(#cliffR)" />
+            <path :d="island.grass" fill="url(#grassGrad)" />
           </g>
 
-          <!-- 枝间透出的深色枝干 -->
-          <path d="M610 427c47 18 85 43 122 78M858 424c-35 21-61 47-83 82M701 297c24 42 39 80 43 119"
-                fill="none" stroke="#93617d" stroke-width="7" stroke-linecap="round" opacity=".5" />
+          <!-- ---------- 地面：网格、草地、广场、道路、水、花圃 ---------- -->
+          <g clip-path="url(#islandClip)">
+            <path :d="ground.grid" fill="none" stroke="#ffffff" stroke-width="1" opacity=".22" />
 
-          <!-- 花冠高光 -->
-          <g fill="#fff0f6" opacity=".72" filter="url(#softGlow)">
-            <ellipse cx="616" cy="216" rx="11" ry="7" transform="rotate(-20 616 216)" />
-            <ellipse cx="756" cy="155" rx="12" ry="8" transform="rotate(15 756 155)" />
-            <ellipse cx="890" cy="225" rx="10" ry="6" transform="rotate(-18 890 225)" />
-            <ellipse cx="506" cy="331" rx="9" ry="6" transform="rotate(26 506 331)" />
-            <ellipse cx="1004" cy="352" rx="11" ry="7" transform="rotate(-24 1004 352)" />
+            <g fill="#a9c08c" opacity=".45">
+              <ellipse v-for="(p, i) in ground.patches" :key="`pt${i}`" :cx="p.cx" :cy="p.cy" :rx="p.rx" :ry="p.ry" />
+            </g>
+            <path v-for="(d, i) in ground.tufts" :key="`tf${i}`" :d="d" fill="none"
+                  stroke="#9cb583" stroke-width="1.5" stroke-linecap="round" opacity=".75" />
+
+            <!-- 公园的草地（先铺，后面再压路和池子） -->
+            <path :d="park.patch" fill="#b8cda0" opacity=".95" />
+            <path :d="park.patch" fill="none" stroke="#9cb383" stroke-width="2.4" stroke-dasharray="7 9" opacity=".85" />
+
+            <!-- 中央广场 -->
+            <ellipse :cx="plaza.cx" :cy="plaza.cy" :rx="plaza.rx + 8" :ry="plaza.ry + 4"
+                     fill="#c3a6a8" opacity=".6" />
+            <ellipse :cx="plaza.cx" :cy="plaza.cy" :rx="plaza.rx" :ry="plaza.ry" fill="url(#plazaGrad)" />
+            <ellipse :cx="plaza.cx" :cy="plaza.cy" :rx="plaza.rx - 13" :ry="plaza.ry - 6.5"
+                     fill="none" stroke="#cbaba9" stroke-width="1.8" stroke-dasharray="7 9" opacity=".95" />
+
+            <!-- 通往各家的小路：先铺一层土色边，再压一层亮面 -->
+            <g v-for="(r, i) in ground.roads" :key="`rd${i}`">
+              <path :d="r.edge" fill="#b79aa3" opacity=".8" />
+              <path :d="r.body" fill="url(#pathGrad)" />
+            </g>
+
+            <!-- 公园的水池 -->
+            <path :d="park.water" fill="url(#waterGrad)" stroke="#84b2c2" stroke-width="2.4" />
+            <g class="water__shimmer" opacity=".7">
+              <path v-for="(d, i) in park.ripples" :key="`wp${i}`" :d="d" fill="none"
+                    stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" />
+            </g>
+
+            <!-- 小溪 -->
+            <path :d="stream.bank" fill="#c1a7ae" opacity=".5" />
+            <path :d="stream.water" fill="url(#waterGrad)" />
+            <g opacity=".6">
+              <path v-for="(d, i) in stream.ripples" :key="`sr${i}`" :d="d" fill="none"
+                    stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" />
+            </g>
+
+            <!-- 花圃 -->
+            <g v-for="(f, i) in ground.flowerBeds" :key="`fb${i}`">
+              <ellipse :cx="f.cx" :cy="f.cy" :rx="f.rx" :ry="f.ry" fill="#a2b98a" opacity=".55" />
+              <circle v-for="(pt, j) in f.points" :key="`p${j}`" :cx="pt[0]" :cy="pt[1]" :r="pt[2]"
+                      :fill="pt[3]" opacity=".95" />
+            </g>
           </g>
-        </g>
 
-        <!-- 路灯 -->
-        <use href="#lamp" transform="translate(362 615) scale(.9)" />
-        <use href="#lamp" transform="translate(1118 613) scale(.92)" />
-        <use href="#lamp" transform="translate(486 525) scale(.48)" opacity=".7" />
-
-        <!-- 前景花草 -->
-        <path d="M0 811c179-36 319-25 443 16 156 50 323 45 481 2 169-45 337-44 516-7v38H0Z" fill="#8f829c" opacity=".54" />
-        <g>
-          <g v-for="f in flowers" :key="f.id" :transform="`translate(${f.x} ${f.y}) scale(${f.s})`">
-            <path d="M0 20V0" stroke="#74816f" stroke-width="2" />
-            <circle cx="-4" cy="-2" r="4" :fill="f.color" />
-            <circle cx="4" cy="-2" r="4" :fill="f.color" />
-            <circle cy="-6" r="4" :fill="f.color" />
-            <circle cy="2" r="4" :fill="f.color" />
-            <circle cy="-2" r="2.4" fill="#ffe7ad" />
+          <!-- 岛边的小瀑布：溪水从这里落进云里 -->
+          <g class="waterfall">
+            <path :d="waterfall.sheet" fill="url(#fallGrad)" opacity=".95" />
+            <path :d="waterfall.shine" fill="none" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" opacity=".7" />
+            <ellipse v-for="(f, i) in waterfall.foam" :key="`fm${i}`" :cx="f.cx" :cy="f.cy" :rx="f.rx" :ry="f.ry"
+                     fill="#eaf7fc" opacity=".45" />
           </g>
-        </g>
 
-      </svg>
+          <!-- 岛的边缘高光，让草地有个厚度 -->
+          <path :d="island.rim" fill="none" stroke="#eaf0d9" stroke-width="3" opacity=".7" />
+
+          <!-- ---------- 场景道具：按 x+y 排序，近的压远的 ---------- -->
+          <g class="props">
+            <g v-for="p in scene" :key="p.id">
+              <!-- 可点击的建筑 -->
+              <g
+                v-if="p.type === 'venue'"
+                class="venue"
+                :class="{ 'is-hot': hover === p.key }"
+                role="button"
+                tabindex="0"
+                :aria-label="`进入${p.label}`"
+                @pointerenter="hover = p.key"
+                @pointerleave="hover = null"
+                @focus="hover = p.key"
+                @blur="hover = null"
+                @click="go(p.key)"
+                @keyup.enter="go(p.key)"
+              >
+                <path class="venue__shadow" :d="p.shadow" fill="#6b4b69" opacity=".2" filter="url(#blurSm)" />
+                <path class="venue__halo" :d="p.halo" fill="#fff6fb" opacity=".0" />
+                <g class="venue__body">
+                  <path :d="p.faces.left" :fill="p.wallL" />
+                  <path :d="p.faces.right" :fill="p.wallR" />
+                  <path
+                    v-for="(dc, i) in p.deco"
+                    :key="`dc${i}`"
+                    :d="dc.d"
+                    :fill="dc.fill || 'none'"
+                    :stroke="dc.stroke || 'none'"
+                    :stroke-width="dc.sw || 0"
+                    :opacity="dc.opacity == null ? 1 : dc.opacity"
+                  />
+                  <path v-for="(rp, i) in p.roofParts" :key="`rf${i}`" :d="rp.d" :fill="rp.fill" />
+                </g>
+              </g>
+
+              <!-- 樱花树：点一下会落一阵花雨 -->
+              <g v-else-if="p.type === 'tree'" class="tree" @click="burstPetals" role="button" tabindex="0"
+                 aria-label="摇一摇樱花树" @keyup.enter="burstPetals">
+                <ellipse :cx="p.bx + 6 * p.s" :cy="p.by" :rx="30 * p.s" :ry="12 * p.s" fill="#6b4b69" opacity=".2" />
+                <path :d="p.trunk" fill="#6f4e59" />
+                <path :d="p.branch" fill="none" stroke="#6f4e59" stroke-width="2.6" stroke-linecap="round" />
+                <ellipse
+                  v-for="(b, i) in p.blobs"
+                  :key="`b${i}`"
+                  :cx="b.cx" :cy="b.cy" :rx="b.rx" :ry="b.ry"
+                  :fill="b.fill" :opacity="b.opacity"
+                />
+                <circle v-for="(d, i) in p.dots" :key="`dt${i}`" :cx="d[0]" :cy="d[1]" :r="d[2]"
+                        fill="#fff2f3" opacity=".8" />
+              </g>
+
+              <!-- 路灯 -->
+              <g v-else-if="p.type === 'lamp'">
+                <ellipse :cx="p.bx + 4" :cy="p.by" rx="13" ry="5" fill="#6b4b69" opacity=".16" />
+                <path :d="p.pole" fill="none" stroke="#6b4b62" stroke-width="3.2" stroke-linecap="round" />
+                <circle :cx="p.bx" :cy="p.by - 48" r="16" fill="url(#lampGlow)" />
+                <path :d="p.head" fill="#ffe8b4" stroke="#6b4b62" stroke-width="1.8" />
+                <path :d="p.cap" fill="none" stroke="#6b4b62" stroke-width="2" stroke-linecap="round" />
+              </g>
+
+              <!-- 长椅 -->
+              <g v-else-if="p.type === 'bench'">
+                <ellipse :cx="p.bx + 3" :cy="p.by" rx="18" ry="7" fill="#6b4b69" opacity=".16" />
+                <path :d="p.seat" fill="#d5a888" />
+                <path :d="p.back" fill="#c1937a" />
+                <path :d="p.legs" fill="none" stroke="#8a6a5a" stroke-width="2.6" stroke-linecap="round" />
+              </g>
+
+              <!-- 灌木 -->
+              <g v-else-if="p.type === 'bush'">
+                <ellipse :cx="p.bx + 3" :cy="p.by" rx="15" ry="6" fill="#6b4b69" opacity=".14" />
+                <ellipse :cx="p.bx - 7" :cy="p.by - 7" rx="11" ry="8" fill="#a3bb8c" />
+                <ellipse :cx="p.bx + 8" :cy="p.by - 8" rx="10" ry="8" fill="#b5c9a0" />
+                <ellipse :cx="p.bx" :cy="p.by - 14" rx="10" ry="8" fill="#adc496" />
+                <circle :cx="p.bx - 6" :cy="p.by - 12" r="2.4" fill="#ffd3de" />
+                <circle :cx="p.bx + 7" :cy="p.by - 13" r="2" fill="#fff0e6" />
+              </g>
+
+              <!-- 小溪上的石桥 -->
+              <g v-else-if="p.type === 'bridge'">
+                <path :d="p.side" fill="#a98d83" />
+                <path :d="p.deck" fill="#e0c9b5" />
+                <path :d="p.grain" fill="none" stroke="#c2a693" stroke-width="1.4" />
+                <path :d="p.rail" fill="none" stroke="#7d5c53" stroke-width="2.4" stroke-linecap="round" />
+                <path :d="p.posts" fill="none" stroke="#7d5c53" stroke-width="2.2" stroke-linecap="round" />
+              </g>
+
+              <!-- 凉亭 -->
+              <g v-else-if="p.type === 'gazebo'">
+                <path :d="p.shadow" fill="#6b4b69" opacity=".18" />
+                <path v-for="(pp, i) in p.parts" :key="`gz${i}`" :d="pp.d" :fill="pp.fill" />
+              </g>
+
+              <!-- 小箱子：贩卖机 / 杂物 -->
+              <g v-else-if="p.type === 'box'">
+                <path v-for="(pp, i) in p.parts" :key="`bp${i}`" :d="pp.d" :fill="pp.fill" />
+                <path v-if="p.glow" :d="p.glow" fill="rgba(255, 240, 198, .9)" />
+                <path v-if="p.cap" :d="p.cap" fill="#f5a3b3" />
+              </g>
+
+              <!-- 石头 -->
+              <g v-else-if="p.type === 'rock'">
+                <path :d="p.body" fill="#b7a7bd" />
+                <path :d="p.lit" fill="#cbbcd0" />
+              </g>
+
+              <!-- 广场喷泉 -->
+              <g v-else-if="p.type === 'fountain'" class="fountain">
+                <ellipse :cx="p.bx + 4" :cy="p.by + 2" rx="40" ry="19" fill="#6b4b69" opacity=".14" />
+                <path :d="p.basinOuter" fill="#dcc6c4" />
+                <path :d="p.water" fill="url(#waterGrad)" />
+                <path :d="p.basinInner" fill="none" stroke="#f4e3de" stroke-width="2" opacity=".8" />
+                <path :d="p.column" fill="#e6d2cf" />
+                <path :d="p.columnShade" fill="#c9aeae" />
+                <ellipse :cx="p.bx" :cy="p.by - 36" rx="15" ry="7.5" fill="#e8d3cf" />
+                <ellipse :cx="p.bx" :cy="p.by - 38" rx="11" ry="5.4" fill="#b6dde8" />
+                <g class="fountain__jet" stroke="#ffffff" stroke-width="1.8" fill="none" opacity=".75" stroke-linecap="round">
+                  <path :d="p.jetLeft" />
+                  <path :d="p.jetRight" />
+                </g>
+              </g>
+
+              <!-- 公园里站着的小人：纯爷们不用建模，几笔剪影就够 -->
+              <g v-else-if="p.type === 'walker'" class="walker">
+                <ellipse :cx="p.bx + 2" :cy="p.by" rx="11" ry="5" fill="#6b4b69" opacity=".2" />
+                <ellipse :cx="p.bx" :cy="p.by" rx="15" ry="6" fill="none" stroke="#fff4f9" stroke-width="1.6"
+                         class="walker__ring" />
+                <path :d="p.body" fill="#e2919f" />
+                <circle :cx="p.bx" :cy="p.by - 30" r="7.6" fill="#ffe3d2" />
+                <path :d="p.hair" fill="#584152" />
+              </g>
+            </g>
+          </g>
+        </svg>
+
+        <!-- 建筑名牌：放在 HTML 层，字号不随 SVG 缩放，手机上也可读 -->
+        <div class="hotspots">
+          <button
+            v-for="s in spots"
+            :key="s.key"
+            type="button"
+            class="hotspot"
+            :class="{ 'is-hot': hover === s.key }"
+            :style="{ left: s.px + 'px', top: s.py + 'px' }"
+            @pointerenter="hover = s.key"
+            @pointerleave="hover = null"
+            @click="go(s.key)"
+          >
+            <span class="hotspot__cn">{{ s.label }}</span>
+            <span class="hotspot__en">{{ s.en }}</span>
+            <i class="hotspot__tail"></i>
+          </button>
+        </div>
+      </div>
 
       <!-- 钱包胶囊：金币 / 体力，和各个店铺页面共用同一份状态 -->
       <div class="town__wallet" aria-label="钱包状态">
@@ -260,16 +343,12 @@
       <!-- 真实花瓣动画层 -->
       <canvas ref="petalCanvas" class="town__petals" aria-hidden="true"></canvas>
 
-      <!-- 点击热区：覆盖树冠与树干 -->
-      <button class="tree-hit" type="button" aria-label="轻点樱花树，唤起一阵花雨" @click="burstPetals"></button>
-
       <!-- 首页文案 -->
       <section class="town__intro">
         <p class="town__eyebrow"><span></span>SAKURA TOWN · 樱花小镇</p>
-        <h1>在花落的<br /><em>小镇里，慢慢生活。</em></h1>
+        <h1>点一下，<br /><em>走进任何一间屋。</em></h1>
         <p class="town__lede">
-          远山很轻，街灯很暖。镇上有书店、便利店、健身房，还有一间你自己的小屋 ——
-          打工换金币，金币换书，书换一个安静的下午。
+          从上往下看，小镇只有巴掌大 —— 书店、便利店、健身房、公园，还有你自己的小屋。
         </p>
         <div class="town__actions">
           <button class="town__primary" type="button" @click="go('home')">
@@ -280,16 +359,17 @@
           </button>
           <button class="town__secondary" type="button" @click="go('park')">去公园坐坐</button>
         </div>
-        <p class="town__click-hint"><span>✦</span>轻点樱花树，让春风经过</p>
+        <p class="town__click-hint"><span>✦</span>点建筑进屋，点樱花树撒一场花</p>
       </section>
 
       <p class="town__foot">SAKURA NOTE · A LITTLE TOWN FOR SLOW DAYS</p>
+      <div class="town__vig" aria-hidden="true"></div>
     </main>
   </div>
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { motionEnabled } from '../composables/useMotion'
 import { useEconomy } from '../composables/useEconomy'
 import SiteNav from './SiteNav.vue'
@@ -305,73 +385,753 @@ const { wallet, refresh: refreshWallet, startTicker } = useEconomy()
 /** 场景跳转：统一走 App.vue 的 navigate 事件 */
 function go (key) { emit('navigate', key) }
 
-// 使用固定随机种子，保证每次渲染的树冠都稳定
-function seeded (seed) {
-  return function () {
-    seed |= 0
-    seed = seed + 0x6D2B79F5 | 0
-    let t = Math.imul(seed ^ seed >>> 15, 1 | seed)
-    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t
-    return ((t ^ t >>> 14) >>> 0) / 4294967296
-  }
-}
-const rand = seeded(20261111)
+/* =========================================================
+   等距（2:1 斜轴）投影 —— 整张地图的地基
+   gx 往画面右下、gy 往画面左下，高度 z 直接减在屏幕上。
+   这是标准的 2.5D 平行投影：没有透视缩放，所以远近一样大，
+   看起来像游戏里的俯视地图，但每栋楼都有正面和侧面。
+   ========================================================= */
+const VBX = -95       // 视野左上角：把多余的天空裁掉，让岛占满画面
+const VBY = 120
+const VBW = 1190
+const VBH = 700
+const HW = 33        // 半格宽
+const HH = 16.5      // 半格高（2:1）
+const OX = 500       // 格子原点在画布上的位置
+const OY = 150
+const G = 17         // 17 x 17 格（地图扩大后）
 
-const clusters = [
-  { x: 522, y: 314, rx: 98, ry: 104 },
-  { x: 587, y: 218, rx: 112, ry: 102 },
-  { x: 710, y: 175, rx: 124, ry: 104 },
-  { x: 830, y: 184, rx: 130, ry: 108 },
-  { x: 940, y: 252, rx: 126, ry: 110 },
-  { x: 982, y: 378, rx: 102, ry: 101 },
-  { x: 864, y: 456, rx: 131, ry: 96 },
-  { x: 702, y: 463, rx: 143, ry: 99 },
-  { x: 556, y: 414, rx: 100, ry: 90 },
-  { x: 741, y: 316, rx: 183, ry: 143 }
-]
-const blossomColors = ['#ffd9e8', '#ffc3da', '#f3abc9', '#e998bf', '#dc89b4', '#f8c9de', '#ffe5ef']
-const blossoms = []
-clusters.forEach((c, ci) => {
-  const count = ci === 9 ? 35 : 20
-  for (let i = 0; i < count; i++) {
-    const angle = rand() * Math.PI * 2
-    const radius = Math.sqrt(rand())
-    const x = c.x + Math.cos(angle) * c.rx * radius
-    const y = c.y + Math.sin(angle) * c.ry * radius
-    const size = 7 + rand() * 19
-    blossoms.push({
-      id: `${ci}-${i}`,
-      x: Math.round(x * 10) / 10,
-      y: Math.round(y * 10) / 10,
-      rx: Math.round(size * 10) / 10,
-      ry: Math.round(size * (.65 + rand() * .45) * 10) / 10,
-      color: blossomColors[Math.floor(rand() * blossomColors.length)],
-      opacity: .18 + rand() * .43,
-      rot: Math.round(rand() * 80 - 40)
-    })
+const round1 = (n) => Math.round(n * 10) / 10
+const P = (p) => `${round1(p[0])} ${round1(p[1])}`
+/** 格坐标 (gx, gy) + 高度 z → 屏幕坐标 */
+function ip (x, y, z = 0) {
+  return [OX + (x - y) * HW, OY + (x + y) * HH - z]
+}
+const poly = (pts) => 'M' + pts.map(P).join('L') + 'Z'
+
+/* ---------- 小岛 ---------- */
+const RIM = 26       // 岛的侧壁厚度
+const cTop = ip(0, 0)
+const cRight = ip(G, 0)
+const cBottom = ip(G, G)
+const cLeft = ip(0, G)
+const rimDepth = -RIM
+const cb = ip(G, G, rimDepth)   // 岛底那个前角，岛底曲线都以它为基准
+
+const island = {
+  grass: poly([cTop, cRight, cBottom, cLeft]),
+  cliffRight: poly([ip(G, 0, 0), ip(G, G, 0), ip(G, G, rimDepth), ip(G, 0, rimDepth)]),
+  cliffLeft: poly([ip(0, G, 0), ip(G, G, 0), ip(G, G, rimDepth), ip(0, G, rimDepth)]),
+  // 岛底：从两个侧角往中间吊成一坨岩石（控制点跟着底角算，改格数不用重画）
+  belly: `M${P(ip(0, G, rimDepth))}L${P(ip(G, G, rimDepth))}L${P(ip(G, 0, rimDepth))}` +
+    `Q${P([cb[0] + 272, cb[1] + 30])} ${P([cb[0] + 24, cb[1] + 56])}` +
+    `Q${P([cb[0] - 258, cb[1] + 22])} ${P(ip(0, G, rimDepth))}Z`,
+  rim: `M${P(cLeft)}L${P(cTop)}L${P(cRight)}`,
+  rockLines: [
+    `M${P([cb[0] - 66, cb[1] - 108])}Q${P([cb[0] - 30, cb[1] - 74])} ${P([cb[0] - 46, cb[1] - 34])}`,
+    `M${P([cb[0] + 58, cb[1] - 112])}Q${P([cb[0] + 88, cb[1] - 78])} ${P([cb[0] + 72, cb[1] - 36])}`,
+    `M${P([cb[0] + 330, cb[1] - 190])}Q${P([cb[0] + 286, cb[1] - 128])} ${P([cb[0] + 250, cb[1] - 64])}`,
+    `M${P([cb[0] - 320, cb[1] - 190])}Q${P([cb[0] - 276, cb[1] - 128])} ${P([cb[0] - 240, cb[1] - 60])}`
+  ]
+}
+
+/* ---------- 地面：网格 / 广场 / 道路 ---------- */
+const gridLines = []
+for (let i = 1; i < G; i++) {
+  gridLines.push(`M${P(ip(i, 0))}L${P(ip(i, G))}`)
+  gridLines.push(`M${P(ip(0, i))}L${P(ip(G, i))}`)
+}
+
+/** 把一条折线撑成有宽度的带状（宽度按屏幕像素算），用来铺路 */
+function ribbon (pts, w) {
+  const s = pts.map(([x, y]) => ip(x, y))
+  const left = []
+  const right = []
+  for (let i = 0; i < s.length; i++) {
+    const a = s[Math.max(0, i - 1)]
+    const b = s[Math.min(s.length - 1, i + 1)]
+    let dx = b[0] - a[0]
+    let dy = b[1] - a[1]
+    const len = Math.hypot(dx, dy) || 1
+    dx /= len
+    dy /= len
+    const hw = w / 2
+    left.push([s[i][0] - dy * hw, s[i][1] + dx * hw])
+    right.push([s[i][0] + dy * hw, s[i][1] - dx * hw])
   }
+  const pts2 = [...left, ...right.reverse()]
+  return 'M' + pts2.map(P).join('L') + 'Z'
+}
+
+// 广场圆心：略微靠前，避免被前排的房子和树整个盖住
+const PCX = 8.5
+const PCY = 8.5
+const plazaC = ip(PCX, PCY)
+const plaza = { cx: plazaC[0], cy: plazaC[1], rx: 88, ry: 44 }
+
+const ROADS = [
+  // 书店（左后方）
+  { pts: [[6.64, 8.14], [5.8, 7.98], [5.2, 7.88]], w: 34 },
+  // 便利店（正后方）
+  { pts: [[7.71, 6.77], [7.05, 5.4], [6.55, 4.15]], w: 34 },
+  // 家（右侧）
+  { pts: [[10.4, 8.39], [11.2, 8.34], [11.95, 8.3]], w: 34 },
+  // 健身房（左前方）
+  { pts: [[7.53, 10.13], [6.6, 11.7], [5.7, 13.25]], w: 36 },
+  // 公园（右前方）
+  { pts: [[9.39, 10.18], [9.75, 10.9], [10.1, 11.55]], w: 40 },
+  // 凉亭（右后方）
+  { pts: [[9.91, 7.23], [11.2, 5.8], [12.4, 4.6], [13.3, 4.0]], w: 30 }
+]
+const roads = ROADS.map((r) => ({
+  edge: ribbon(r.pts, r.w + 9),
+  body: ribbon(r.pts, r.w)
+}))
+
+// 花圃：沿路撒几簇，给地面加点颜色
+const flowerColors = ['#ffd4e5', '#e4c6f0', '#fff1db', '#d5e3cf', '#ffc0b0']
+const BED_SPECS = [
+  [4.0, 8.6], [9.8, 4.6], [2.6, 3.0], [7.4, 11.6], [14.6, 9.0], [6.0, 7.2],
+  [11.8, 2.4], [1.4, 15.4], [15.8, 4.0], [8.6, 6.2], [12.6, 9.2], [5.0, 16.2]
+]
+const flowerBeds = BED_SPECS.map(([gx, gy], i) => {
+  const [cx, cy] = ip(gx, gy)
+  const rx = 26 + (i % 3) * 6
+  const ry = rx / 2
+  const points = []
+  for (let k = 0; k < 7; k++) {
+    const a = (k / 7) * Math.PI * 2 + i
+    points.push([
+      round1(cx + Math.cos(a) * rx * 0.72),
+      round1(cy + Math.sin(a) * ry * 0.72),
+      round1(2.4 + (k % 3) * 0.9),
+      flowerColors[(k + i) % flowerColors.length]
+    ])
+  }
+  return { cx, cy, rx, ry, points }
 })
 
-const flowerColors = ['#ffd4e5', '#e4c6f0', '#fff1db', '#d5e3cf']
-const flowers = []
-for (let i = 0; i < 42; i++) {
-  const x = 20 + rand() * 1400
-  // 避开中央街道
-  if (x > 620 && x < 960) continue
-  flowers.push({
-    id: i,
-    x: Math.round(x),
-    y: Math.round(790 + rand() * 63),
-    s: .55 + rand() * .7,
-    color: flowerColors[Math.floor(rand() * flowerColors.length)]
+// 草地上深浅不一的斑块，避免一大片死平的颜色
+const PATCH_SPECS = [
+  [3.0, 3.2, 1.6], [6.6, 5.2, 1.3], [11.4, 4.4, 1.4], [13.6, 8.4, 1.1],
+  [4.2, 12.8, 1.3], [7.8, 11.0, 1.0], [14.4, 6.0, 1.0], [1.0, 9.6, 0.9],
+  [9.2, 6.6, 1.2], [15.4, 10.4, 0.9], [5.8, 14.8, 1.0], [2.4, 16.0, 0.8]
+]
+const patches = PATCH_SPECS.map(([gx, gy, r]) => {
+  const [cx, cy] = ip(gx, gy)
+  return { cx, cy, rx: r * 46, ry: r * 23 }
+})
+
+// 草丛：三根短线，插在空地上，比纯色草地耐看
+const TUFT_SPECS = [
+  [1.2, 1.8], [3.0, 2.2], [5.8, 4.6], [10.2, 3.0], [14.2, 2.6], [0.8, 5.6],
+  [0.7, 8.6], [2.6, 7.4], [5.2, 9.4], [6.6, 12.5], [9.0, 7.5], [12.9, 6.6],
+  [12.6, 8.6], [4.4, 13.4], [12.8, 11.4], [7.6, 3.9], [3.6, 12.0], [11.2, 5.6],
+  [0.5, 16.2], [2.2, 9.4], [16.2, 2.2], [9.4, 15.4], [13.6, 11.0], [6.2, 16.2],
+  [15.2, 3.4], [4.6, 6.4]
+]
+const tufts = TUFT_SPECS.map(([gx, gy], i) => {
+  const [bx, by] = ip(gx, gy)
+  const k = 0.8 + (i % 3) * 0.18
+  return `M${P([bx - 4 * k, by])}q${-1} ${-5 * k} ${-3 * k} ${-7 * k}` +
+    `M${P([bx, by])}q${0} ${-6 * k} ${1 * k} ${-9 * k}` +
+    `M${P([bx + 4 * k, by])}q${2 * k} ${-4 * k} ${4 * k} ${-6 * k}`
+})
+
+const ground = {
+  grid: gridLines.join(''),
+  roads,
+  flowerBeds,
+  patches,
+  tufts
+}
+
+/* ---------- 小溪：从左前方的空地流到岛边，再顺着崖壁落下去 ---------- */
+const STREAM_PTS = [[0.1, 10.8], [0.9, 12.6], [2.2, 14.3], [3.6, 15.7], [5.2, 17.0]]
+const stream = {
+  bank: ribbon(STREAM_PTS, 38),
+  water: ribbon(STREAM_PTS, 26),
+  ripples: [0, 1, 2].map((i) => {
+    const [x, y] = ip(0.8 + i * 1.3, 12.4 + i * 1.3)
+    return `M${P([x - 8, y + 2])}q8 -5 16 0`
   })
 }
 
-// ---------- Canvas 花瓣 ----------
+// 瀑布：溪水出了岛就往下掉，落在半空里
+const waterfall = (() => {
+  const [fx, fy] = ip(5.2, 17.0)
+  return {
+    sheet: `M${P([fx - 13, fy - 1])}C${P([fx - 12, fy + 18])} ${P([fx - 9, fy + 32])} ${P([fx - 7, fy + 42])}` +
+      `L${P([fx + 9, fy + 42])}C${P([fx + 11, fy + 30])} ${P([fx + 13, fy + 16])} ${P([fx + 14, fy - 1])}Z`,
+    shine: `M${P([fx - 4, fy + 5])}q2 18 3 34`,
+    foam: [
+      { cx: round1(fx + 2), cy: round1(fy + 47), rx: 19, ry: 7 },
+      { cx: round1(fx - 11), cy: round1(fy + 42), rx: 10, ry: 4.5 },
+      { cx: round1(fx + 15), cy: round1(fy + 40), rx: 9, ry: 4 }
+    ]
+  }
+})()
+
+/* ---------- 小溪上的石桥 ---------- */
+const bridge = (() => {
+  const [bx, by] = ip(2.16, 14.24)
+  return {
+    type: 'bridge',
+    id: 'bridge',
+    depth: 2.16 + 14.24,
+    bx,
+    deck: poly([[bx - 28, by - 10], [bx + 28, by - 16], [bx + 28, by - 3], [bx - 28, by + 3]]),
+    side: poly([[bx - 28, by + 3], [bx + 28, by - 3], [bx + 28, by + 3], [bx - 28, by + 9]]),
+    grain: `M${P([bx - 22, by - 1])}L${P([bx + 24, by - 7])}M${P([bx - 22, by + 1])}L${P([bx + 24, by - 5])}`,
+    rail: `M${P([bx - 28, by - 10])}L${P([bx + 28, by - 16])}`,
+    posts: `M${P([bx - 26, by - 16])}v7M${P([bx + 26, by - 22])}v7`
+  }
+})()
+
+/* ---------- 公园：自己的一块草地 + 水池 ---------- */
+const parkSpec = { x: 10.0, y: 11.2, w: 3.8, d: 3.4 }
+const wC = ip(11.25, 12.35)
+const park = {
+  patch: poly([
+    ip(parkSpec.x, parkSpec.y), ip(parkSpec.x + parkSpec.w, parkSpec.y),
+    ip(parkSpec.x + parkSpec.w, parkSpec.y + parkSpec.d), ip(parkSpec.x, parkSpec.y + parkSpec.d)
+  ]),
+  water: `M${P([wC[0] - 52, wC[1]])}C${P([wC[0] - 52, wC[1] - 26])} ${P([wC[0] - 20, wC[1] - 30])} ${P([wC[0] + 6, wC[1] - 24])}` +
+    `C${P([wC[0] + 42, wC[1] - 16])} ${P([wC[0] + 50, wC[1] + 8])} ${P([wC[0] + 26, wC[1] + 18])}` +
+    `C${P([wC[0] - 4, wC[1] + 28])} ${P([wC[0] - 44, wC[1] + 22])} ${P([wC[0] - 52, wC[1] + 4])}Z`,
+  ripples: [
+    `M${P([wC[0] - 28, wC[1] - 8])}q14 -6 28 0`,
+    `M${P([wC[0] - 14, wC[1] + 6])}q12 -5 24 0`,
+    `M${P([wC[0] + 6, wC[1] - 12])}q10 -4 20 0`
+  ]
+}
+
+/* =========================================================
+   建筑：每栋都是一个盒子 + 细节
+   只画朝向镜头的两个立面（+gx 与 +gy），顶面另画一层带外挑的屋檐。
+   ========================================================= */
+function faceQuad (fn, u0, u1, z0, z1) {
+  return poly([fn(u0, z0), fn(u1, z0), fn(u1, z1), fn(u0, z1)])
+}
+
+const ROOF_LIGHT = '#7f5a7c'
+const ROOF_DARK = '#5c3d59'
+
+const BUILDINGS = [
+  {
+    key: 'home',
+    label: '书店',
+    en: 'BOOKSTORE',
+    x: 2.4, y: 5.6, w: 2.9, d: 2.2, h: 76,
+    wallL: '#e6c9d1', wallR: '#fbeadd',
+    doorFace: 'left',
+    rows: [[24, 42], [46, 54]],
+    cols: [[0.1, 0.26], [0.72, 0.88]],
+    awning: ['#c9556f', '#f9dde4']
+  },
+  {
+    key: 'store',
+    label: '便利店',
+    en: 'STORE 24H',
+    x: 6.2, y: 2.0, w: 2.7, d: 2.0, h: 68,
+    wallL: '#dfe6da', wallR: '#f8fbf2',
+    doorFace: 'left',
+    rows: [[20, 38]],
+    cols: [[0.08, 0.28], [0.7, 0.92]],
+    glass: true,
+    awning: ['#6fae9d', '#e6f5ef']
+  },
+  {
+    key: 'gym',
+    label: '健身房',
+    en: 'GYM',
+    x: 2.6, y: 11.4, w: 3.0, d: 2.0, h: 92,
+    wallL: '#dcc6cf', wallR: '#f6e5e1',
+    doorFace: 'left',
+    rows: [[24, 42], [46, 58], [62, 70]],
+    cols: [[0.1, 0.26], [0.72, 0.88]],
+    awning: ['#8d6fa8', '#eee4f6']
+  },
+  {
+    key: 'gamehome',
+    label: '家',
+    en: 'MY ROOM',
+    x: 12.0, y: 6.4, w: 2.6, d: 2.0, h: 54,
+    wallL: '#e3cbd3', wallR: '#fbeade',
+    doorFace: 'left',
+    rows: [[20, 36]],
+    cols: [[0.1, 0.26], [0.72, 0.88]],
+    pitched: true
+  }
+]
+
+function buildVenue (v) {
+  const x0 = v.x
+  const y0 = v.y
+  const x1 = v.x + v.w
+  const y1 = v.y + v.d
+  const h = v.h
+  const e = 0.15 // 屋檐外挑
+
+  // 立面上的参数坐标：u 沿墙面横走，z 是高度
+  const leftFace = (u, z) => ip(x0 + v.w * u, y1, z)
+  const rightFace = (u, z) => ip(x1, y0 + v.d * u, z)
+  const doorFn = v.doorFace === 'left' ? leftFace : rightFace
+  const winFn = v.doorFace === 'left' ? rightFace : leftFace
+
+  const deco = []
+  // 踢脚：贴地一条深色，盒子才不像一张纸
+  deco.push({ d: faceQuad(leftFace, 0, 1, 0, 6), fill: 'rgba(150,110,132,.24)' })
+  deco.push({ d: faceQuad(rightFace, 0, 1, 0, 6), fill: 'rgba(150,110,132,.15)' })
+
+  // 窗户：一排排小方窗，暖光代表屋里有人
+  for (const [z0, z1] of v.rows) {
+    for (const [u0, u1] of v.cols) {
+      deco.push({
+        d: faceQuad(winFn, u0, u1, z0, z1),
+        fill: v.glass ? 'rgba(206,238,232,.92)' : '#ffe4ac',
+        opacity: 0.95
+      })
+      deco.push({
+        d: faceQuad(winFn, u0, u1, z0, z1),
+        fill: 'none',
+        stroke: 'rgba(110,76,98,.42)',
+        sw: 1.2
+      })
+    }
+  }
+
+  // 门
+  deco.push({ d: faceQuad(doorFn, 0.4, 0.62, 0, 30), fill: '#7f5771' })
+  deco.push({ d: faceQuad(doorFn, 0.44, 0.58, 7, 26), fill: 'rgba(255,232,188,.88)' })
+  deco.push({ d: faceQuad(doorFn, 0.4, 0.62, 0, 30), fill: 'none', stroke: 'rgba(90,60,80,.3)', sw: 1.2 })
+
+  // 门脸一侧的窗：不能整面白墙，靠上的几排照样开窗
+  for (const [z0, z1] of v.rows) {
+    if (z1 > h - 24) continue
+    for (const [u0, u1] of v.cols) {
+      deco.push({ d: faceQuad(doorFn, u0, u1, z0, z1), fill: v.glass ? 'rgba(206,238,232,.92)' : '#ffe4ac', opacity: 0.95 })
+      deco.push({ d: faceQuad(doorFn, u0, u1, z0, z1), fill: 'none', stroke: 'rgba(110,76,98,.42)', sw: 1.2 })
+    }
+  }
+
+  // 楼层线：一道浅浅的横线，墙面就有了层数
+  for (const z of [44, 70]) {
+    if (z > h - 26) continue
+    deco.push({ d: faceQuad(leftFace, 0, 1, z, z + 2), fill: 'rgba(120,86,106,.15)' })
+    deco.push({ d: faceQuad(rightFace, 0, 1, z, z + 2), fill: 'rgba(120,86,106,.1)' })
+  }
+
+  // 雨棚：斜条纹，门口一下就有了「店」的味道
+  if (v.awning) {
+    const uA = 0.34
+    const uB = 0.68
+    const n = 6
+    for (let i = 0; i < n; i++) {
+      const a = uA + ((uB - uA) / n) * i
+      const b = uA + ((uB - uA) / n) * (i + 1)
+      deco.push({ d: faceQuad(doorFn, a, b, 32, 44), fill: i % 2 ? v.awning[1] : v.awning[0] })
+    }
+    deco.push({ d: faceQuad(doorFn, uA, uB, 30, 32), fill: 'rgba(90,60,80,.22)' })
+  }
+
+  // 招牌带：屋顶以下一条白底，衬出「这家店有名字」
+  if (!v.pitched) {
+    const sz0 = h - 20
+    const sz1 = h - 8
+    deco.push({ d: faceQuad(doorFn, 0.29, 0.71, sz0, sz1), fill: 'rgba(255, 252, 253, .9)' })
+    deco.push({ d: faceQuad(doorFn, 0.29, 0.71, sz0, sz1), fill: 'none', stroke: 'rgba(118, 84, 106, .28)', sw: 1.1 })
+    for (let i = 0; i < 3; i++) {
+      deco.push({
+        d: faceQuad(doorFn, 0.35 + i * 0.11, 0.41 + i * 0.11, sz0 + 4, sz1 - 4),
+        fill: i === 1 ? 'rgba(170, 96, 126, .72)' : 'rgba(140, 96, 118, .45)'
+      })
+    }
+  }
+
+  // 屋檐 / 屋顶
+  const roofParts = []
+  if (v.pitched) {
+    // 人字顶：屋脊顺着 gx 方向，只看得见朝向镜头的那面坡和右端山墙
+    const mid = (y0 + y1) / 2
+    const rise = 26
+    roofParts.push({
+      d: poly([ip(x0 - e, y1 + e, h), ip(x1 + e, y1 + e, h), ip(x1 + e, mid, h + rise), ip(x0 - e, mid, h + rise)]),
+      fill: ROOF_DARK
+    })
+    roofParts.push({
+      d: poly([ip(x1 + e, y0 - e, h), ip(x1 + e, y1 + e, h), ip(x1 + e, mid, h + rise)]),
+      fill: ROOF_LIGHT
+    })
+    roofParts.push({
+      d: `M${P(ip(x0 - e, mid, h + rise))}L${P(ip(x1 + e, mid, h + rise))}`,
+      fill: 'none'
+    })
+    roofParts.push({
+      d: `M${P(ip(x0 - e, mid - 0.08, h + rise))}L${P(ip(x1 + e, mid - 0.08, h + rise))}L${P(ip(x1 + e, mid + 0.08, h + rise))}L${P(ip(x0 - e, mid + 0.08, h + rise))}Z`,
+      fill: '#a97f9c'
+    })
+    // 烟囱
+    roofParts.push({
+      d: poly([ip(x0 + 0.35, y1 - 0.55, h + 6), ip(x0 + 0.8, y1 - 0.55, h + 6), ip(x0 + 0.8, y1 - 0.55, h + 34), ip(x0 + 0.35, y1 - 0.55, h + 34)]),
+      fill: '#a98a9b'
+    })
+    roofParts.push({
+      d: poly([ip(x0 + 0.35, y1 - 0.55, h + 34), ip(x0 + 0.8, y1 - 0.55, h + 34), ip(x0 + 0.8, y1 - 1.0, h + 34), ip(x0 + 0.35, y1 - 1.0, h + 34)]),
+      fill: '#c3a5b2'
+    })
+  } else {
+    const rt = h + 6
+    roofParts.push({
+      d: poly([ip(x0 - e, y1 + e, h), ip(x1 + e, y1 + e, h), ip(x1 + e, y1 + e, rt), ip(x0 - e, y1 + e, rt)]),
+      fill: ROOF_LIGHT
+    })
+    roofParts.push({
+      d: poly([ip(x1 + e, y0 - e, h), ip(x1 + e, y1 + e, h), ip(x1 + e, y1 + e, rt), ip(x1 + e, y0 - e, rt)]),
+      fill: ROOF_DARK
+    })
+    roofParts.push({
+      d: poly([ip(x0 - e, y0 - e, rt), ip(x1 + e, y0 - e, rt), ip(x1 + e, y1 + e, rt), ip(x0 - e, y1 + e, rt)]),
+      fill: '#8f6a88'
+    })
+    // 顶面的一道浅色反光
+    roofParts.push({
+      d: poly([ip(x0 + 0.15, y0 + 0.15, rt), ip(x1 - 0.4, y0 + 0.15, rt), ip(x1 - 0.4, y1 - 0.75, rt), ip(x0 + 0.15, y1 - 0.75, rt)]),
+      fill: '#a17b9a',
+      opacity: 0.6
+    })
+  }
+
+  return {
+    type: 'venue',
+    id: `v-${v.key}`,
+    key: v.key,
+    label: v.label,
+    en: v.en,
+    depth: x1 + y1,
+    shadow: poly([
+      ip(x0 + 0.1, y0 + 0.1), ip(x1 + 0.7, y0 + 0.1), ip(x1 + 0.7, y1 + 0.7), ip(x0 + 0.1, y1 + 0.7)
+    ]),
+    halo: poly([
+      ip(x0 - 0.35, y0 - 0.35), ip(x1 + 0.35, y0 - 0.35), ip(x1 + 0.35, y1 + 0.35), ip(x0 - 0.35, y1 + 0.35)
+    ]),
+    faces: {
+      left: poly([ip(x0, y1, 0), ip(x1, y1, 0), ip(x1, y1, h), ip(x0, y1, h)]),
+      right: poly([ip(x1, y0, 0), ip(x1, y1, 0), ip(x1, y1, h), ip(x1, y0, h)])
+    },
+    wallL: v.wallL,
+    wallR: v.wallR,
+    deco,
+    roofParts,
+    labelPos: ip((x0 + x1) / 2, (y0 + y1) / 2, h + (v.pitched ? 48 : 24))
+  }
+}
+
+const venues = BUILDINGS.map(buildVenue)
+
+// 公园是「开放场地」：没有房子，给一块透明热区就能点
+const parkVenue = {
+  type: 'venue',
+  id: 'v-park',
+  key: 'park',
+  label: '公园',
+  en: 'PARK',
+  depth: parkSpec.x + parkSpec.y + 0.1,
+  shadow: null,
+  halo: park.patch,
+  faces: { left: 'M0 0Z', right: 'M0 0Z' },
+  wallL: 'none',
+  wallR: 'none',
+  deco: [],
+  roofParts: [],
+  labelPos: ip(11.9, 13.1, 66)
+}
+venues.push(parkVenue)
+
+/* ---------- 树 / 灯 / 长椅 / 灌木 / 石头 ---------- */
+function buildTree (t) {
+  const [bx, by] = ip(t.x, t.y)
+  const s = t.s || 1
+  const th = 56 * s
+  const top = by - th
+  const blobs = [
+    { dx: 0, dy: 0, rx: 31, ry: 24, fill: 'url(#canopy)', opacity: 0.92 },
+    { dx: -25, dy: 4, rx: 24, ry: 19, fill: 'url(#canopy)', opacity: 0.88 },
+    { dx: 24, dy: 2, rx: 23, ry: 18, fill: 'url(#canopy)', opacity: 0.86 },
+    { dx: -7, dy: -20, rx: 29, ry: 23, fill: 'url(#canopyLit)', opacity: 0.9 },
+    { dx: 12, dy: -34, rx: 21, ry: 17, fill: 'url(#canopyLit)', opacity: 0.86 },
+    { dx: -18, dy: -30, rx: 17, ry: 14, fill: 'url(#canopyLit)', opacity: 0.7 }
+  ].map((b) => ({
+    cx: round1(bx + b.dx * s),
+    cy: round1(top + b.dy * s + 8 * s),
+    rx: round1(b.rx * s),
+    ry: round1(b.ry * s),
+    fill: b.fill,
+    opacity: b.opacity
+  }))
+  const dots = []
+  for (let i = 0; i < 9; i++) {
+    const a = i * 2.1
+    dots.push([
+      round1(bx + Math.cos(a) * 22 * s * (0.4 + (i % 3) * 0.3)),
+      round1(top + Math.sin(a * 1.3) * 14 * s - 4 * s),
+      round1(1.6 * s)
+    ])
+  }
+  return {
+    type: 'tree',
+    id: `t-${t.x}-${t.y}`,
+    depth: t.x + t.y,
+    bx, by, s,
+    trunk: `M${P([bx - 3.6 * s, by])}Q${P([bx - 2.2 * s, by - th * 0.6])} ${P([bx - 1 * s, top])}` +
+      `L${P([bx + 1 * s, top])}Q${P([bx + 2.6 * s, by - th * 0.55])} ${P([bx + 3.6 * s, by])}Z`,
+    branch: `M${P([bx, by - th * 0.72])}q${-12 * s} ${-6 * s} ${-16 * s} ${-14 * s}` +
+      `M${P([bx + 0.5 * s, by - th * 0.62])}q${12 * s} ${-5 * s} ${15 * s} ${-12 * s}`,
+    blobs,
+    dots
+  }
+}
+
+const TREES = [
+  // 公园里的三棵大樱花
+  { x: 11.5, y: 11.9, s: 1.12 },
+  { x: 13.1, y: 13.0, s: 0.96 },
+  { x: 10.5, y: 13.7, s: 0.9 },
+  // 书店背后的小林
+  { x: 2.0, y: 3.5, s: 0.94 },
+  { x: 0.9, y: 5.4, s: 0.82 },
+  // 便利店背后
+  { x: 5.5, y: 0.9, s: 0.84 },
+  { x: 8.7, y: 1.0, s: 0.88 },
+  // 家旁边
+  { x: 15.05, y: 7.5, s: 0.9 },
+  { x: 14.75, y: 9.7, s: 0.8 },
+  // 健身房前
+  { x: 1.3, y: 14.6, s: 0.86 },
+  { x: 6.0, y: 15.3, s: 0.8 },
+  // 凉亭一带
+  { x: 15.4, y: 5.5, s: 0.82 },
+  { x: 13.2, y: 2.0, s: 0.78 },
+  // 左角与正前方
+  { x: 0.8, y: 9.8, s: 0.82 },
+  { x: 8.2, y: 15.6, s: 0.78 },
+  // 广场前方的空地
+  { x: 6.6, y: 12.9, s: 0.84 },
+  { x: 9.1, y: 13.6, s: 0.78 }
+]
+
+const LAMPS = [
+  { x: 6.3, y: 6.3 },
+  { x: 10.7, y: 6.3 },
+  { x: 6.3, y: 10.7 },
+  { x: 10.7, y: 10.7 },
+  { x: 12.9, y: 4.6 }
+].map((l, i) => {
+  const [bx, by] = ip(l.x, l.y)
+  return {
+    type: 'lamp',
+    id: `lamp${i}`,
+    depth: l.x + l.y,
+    bx, by,
+    pole: `M${P([bx, by])}V${round1(by - 44)}`,
+    head: `M${P([bx - 6, by - 46])}h12l-2-9h-8Z`,
+    cap: `M${P([bx - 8, by - 56])}h16`
+  }
+})
+
+const BENCHES = [
+  { x: 12.6, y: 12.1 },
+  { x: 11.9, y: 13.9 },
+  { x: 7.05, y: 15.25 }
+].map((b, i) => {
+  const [bx, by] = ip(b.x, b.y)
+  return {
+    type: 'bench',
+    id: `bench${i}`,
+    depth: b.x + b.y,
+    bx, by,
+    seat: poly([ip(b.x - 0.34, b.y - 0.12, 8), ip(b.x + 0.34, b.y - 0.12, 8), ip(b.x + 0.34, b.y + 0.12, 8), ip(b.x - 0.34, b.y + 0.12, 8)]),
+    back: poly([ip(b.x - 0.34, b.y + 0.12, 8), ip(b.x + 0.34, b.y + 0.12, 8), ip(b.x + 0.34, b.y + 0.12, 18), ip(b.x - 0.34, b.y + 0.12, 18)]),
+    legs: `M${P([bx - 14, round1(by - 4)])}V${round1(by + 4)}M${P([bx + 10, round1(by - 8)])}V${round1(by)}`
+  }
+})
+
+const BUSHES = [
+  { x: 1.6, y: 7.6 }, { x: 5.9, y: 5.6 }, { x: 9.6, y: 5.4 }, { x: 11.0, y: 7.2 },
+  { x: 3.4, y: 9.6 }, { x: 14.2, y: 4.6 }, { x: 0.9, y: 11.6 }, { x: 6.6, y: 12.4 },
+  { x: 8.4, y: 13.4 }, { x: 12.2, y: 10.4 }, { x: 15.6, y: 8.2 }, { x: 4.4, y: 4.2 },
+  { x: 9.4, y: 2.4 }, { x: 16.0, y: 6.2 }, { x: 2.2, y: 12.6 }, { x: 7.0, y: 9.9 }
+].map((b, i) => {
+  const [bx, by] = ip(b.x, b.y)
+  return { type: 'bush', id: `bush${i}`, depth: b.x + b.y, bx, by }
+})
+
+const ROCKS = [
+  { x: 1.6, y: 2.2 }, { x: 16.1, y: 4.2 }, { x: 7.4, y: 15.9 },
+  { x: 3.0, y: 16.5 }, { x: 13.4, y: 15.3 }, { x: 0.7, y: 13.1 }
+].map((r, i) => {
+  const [bx, by] = ip(r.x, r.y)
+  return {
+    type: 'rock',
+    id: `rock${i}`,
+    depth: r.x + r.y,
+    body: `M${P([bx - 11, by])}L${P([bx - 6, by - 9])}L${P([bx + 4, by - 10])}L${P([bx + 11, by - 2])}L${P([bx + 6, by + 3])}Z`,
+    lit: `M${P([bx - 6, by - 9])}L${P([bx + 4, by - 10])}L${P([bx + 2, by - 4])}L${P([bx - 5, by - 3])}Z`
+  }
+})
+
+// 喷泉：广场中心的地标
+const fountain = (() => {
+  const [bx, by] = ip(PCX, PCY)
+  return {
+    type: 'fountain',
+    id: 'fountain',
+    depth: PCX + PCY,
+    bx, by,
+    basinOuter: `M${P([bx - 44, by])}a44 22 0 1 0 88 0a44 22 0 1 0 -88 0Z`,
+    water: `M${P([bx - 33, by])}a33 16.5 0 1 0 66 0a33 16.5 0 1 0 -66 0Z`,
+    basinInner: `M${P([bx - 37, by])}a37 18.5 0 1 0 74 0a37 18.5 0 1 0 -74 0Z`,
+    column: poly([ip(PCX - 0.23, PCY - 0.23, 0), ip(PCX + 0.23, PCY - 0.23, 0), ip(PCX + 0.23, PCY - 0.23, 36), ip(PCX - 0.23, PCY - 0.23, 36)]),
+    columnShade: poly([ip(PCX + 0.23, PCY - 0.23, 0), ip(PCX + 0.23, PCY + 0.23, 0), ip(PCX + 0.23, PCY + 0.23, 36), ip(PCX + 0.23, PCY - 0.23, 36)]),
+    jetLeft: `M${P([bx - 4, by - 42])}q${-14} ${-10} ${-18} ${4}`,
+    jetRight: `M${P([bx + 4, by - 42])}q${14} ${-10} ${18} ${4}`
+  }
+})()
+
+// 站在广场上的小人：给地图一个「这是我」的锚点
+const walker = (() => {
+  const [bx, by] = ip(9.92, 9.66)
+  return {
+    type: 'walker',
+    id: 'walker',
+    depth: 9.92 + 9.66,
+    bx, by,
+    body: `M${P([bx - 5.5, by - 22])}Q${P([bx - 6.5, by - 4])} ${P([bx - 4, by])}L${P([bx + 4, by])}Q${P([bx + 6.5, by - 4])} ${P([bx + 5.5, by - 22])}Z`,
+    hair: `M${P([bx - 7.6, by - 32])}a7.6 7.6 0 0 1 15.2 0q${-7.6} ${-4} ${-15.2} 0Z`
+  }
+})()
+
+/** 通用的落地小箱子：自动出两个侧面 + 顶面 */
+function boxParts (x0, y0, w, d, z0, z1, colors) {
+  const x1 = x0 + w
+  const y1 = y0 + d
+  return [
+    { d: poly([ip(x0, y1, z0), ip(x1, y1, z0), ip(x1, y1, z1), ip(x0, y1, z1)]), fill: colors.l },
+    { d: poly([ip(x1, y0, z0), ip(x1, y1, z0), ip(x1, y1, z1), ip(x1, y0, z1)]), fill: colors.r },
+    { d: poly([ip(x0, y0, z1), ip(x1, y0, z1), ip(x1, y1, z1), ip(x0, y1, z1)]), fill: colors.t }
+  ]
+}
+
+// 广场边的自动贩卖机：夜里自己会亮的那种
+const vending = (() => {
+  const x0 = 7.16
+  const y0 = 10.18
+  const w = 0.44
+  const d = 0.3
+  return {
+    type: 'box',
+    id: 'vending',
+    depth: x0 + y0 + w + d,
+    parts: boxParts(x0, y0, w, d, 0, 26, { l: '#e05a72', r: '#b8415c', t: '#f08498' }),
+    glow: poly([ip(x0 + 0.04, y0 + d, 12), ip(x0 + w - 0.04, y0 + d, 12), ip(x0 + w - 0.04, y0 + d, 23), ip(x0 + 0.04, y0 + d, 23)]),
+    cap: poly([ip(x0 - 0.03, y0 - 0.03, 26), ip(x0 + w + 0.03, y0 - 0.03, 26), ip(x0 + w + 0.03, y0 + d + 0.03, 26), ip(x0 - 0.03, y0 + d + 0.03, 26)])
+  }
+})()
+
+// 凉亭：四根柱子 + 攒尖顶，摆在右后方那块空地上
+const gazebo = (() => {
+  const x0 = 13.8
+  const y0 = 2.9
+  const w = 1.5
+  const d = 1.5
+  const x1 = x0 + w
+  const y1 = y0 + d
+  const baseH = 6
+  const postH = 46
+  const apex = ip((x0 + x1) / 2, (y0 + y1) / 2, postH + 30)
+  const posts = [[x0 + 0.16, y0 + 0.16], [x1 - 0.16, y0 + 0.16], [x1 - 0.16, y1 - 0.16], [x0 + 0.16, y1 - 0.16]]
+  const parts = [
+    ...boxParts(x0, y0, w, d, 0, baseH, { l: '#d3bbae', r: '#c0a69b', t: '#e2cec2' }),
+    ...posts.map(([px, py]) => boxParts(px - 0.06, py - 0.06, 0.12, 0.12, baseH, postH, { l: '#9c7683', r: '#7b5966', t: '#ad8a97' })).flat(),
+    { d: poly([ip(x1 + 0.2, y0 - 0.2, postH), ip(x1 + 0.2, y1 + 0.2, postH), apex]), fill: '#6d4a64' },
+    { d: poly([ip(x0 - 0.2, y1 + 0.2, postH), ip(x1 + 0.2, y1 + 0.2, postH), apex]), fill: '#8d6484' },
+    { d: `M${P(apex)}l-2.6 -6 5.2 0Z`, fill: '#c9a3b8' } // 顶上那颗珠子
+  ]
+  return {
+    type: 'gazebo',
+    id: 'gazebo',
+    depth: x1 + y1,
+    parts,
+    shadow: poly([ip(x0 - 0.1, y0 - 0.1), ip(x1 + 0.5, y0 - 0.1), ip(x1 + 0.5, y1 + 0.5), ip(x0 - 0.1, y1 + 0.5)])
+  }
+})()
+
+/** 画家算法：x+y 越大越靠近镜头，最后画 */
+const scene = computed(() => [
+  ...venues,
+  ...TREES.map(buildTree),
+  ...LAMPS,
+  ...BENCHES,
+  ...BUSHES,
+  ...ROCKS,
+  fountain,
+  vending,
+  bridge,
+  gazebo,
+  walker
+].sort((a, b) => a.depth - b.depth))
+
+/* =========================================================
+   名牌：把 SVG 坐标换算成容器里的像素，交给 HTML 定位
+   —— SVG 里的 text 会跟着 viewBox 一起缩小，手机上就看不见了
+   ========================================================= */
+const stageEl = ref(null)
+const stageW = ref(0)
+const stageH = ref(0)
+
+const spots = computed(() => {
+  const scale = Math.min(stageW.value / VBW, stageH.value / VBH) || 0
+  const dx = (stageW.value - VBW * scale) / 2 - VBX * scale
+  const dy = (stageH.value - VBH * scale) / 2 - VBY * scale
+  return venues.map((v) => {
+    const px = dx + v.labelPos[0] * scale
+    const py = dy + v.labelPos[1] * scale
+    // 贴边时把名牌拉回画面内，免得被小岛外框裁掉一角
+    const pad = 54
+    return {
+      key: v.key,
+      label: v.label,
+      en: v.en,
+      px: round1(Math.min(Math.max(px, pad), stageW.value - pad)),
+      py: round1(py)
+    }
+  })
+})
+/* ---------- 悬停 / 视差 ---------- */
+const hover = ref(null)
+const tilt = ref({ x: 0, y: 0 })
+const reduceMotion = ref(false)
+
+const stageStyle = computed(() => ({
+  transform: `translate3d(${tilt.value.x}px, ${tilt.value.y}px, 0)`
+}))
+
+function onPointerMove (e) {
+  if (reduceMotion.value) return
+  const rect = stageEl.value ? stageEl.value.getBoundingClientRect() : null
+  if (!rect) return
+  const nx = (e.clientX - rect.left) / rect.width - 0.5
+  const ny = (e.clientY - rect.top) / rect.height - 0.5
+  tilt.value = { x: -nx * 16, y: -ny * 12 }
+}
+function onPointerLeave () {
+  tilt.value = { x: 0, y: 0 }
+}
+
+/* ---------- Canvas 花瓣 ---------- */
 const petalCanvas = ref(null)
 const gusting = ref(false)
 let canvasCtx = null
-let sceneEl = null
 let width = 0
 let height = 0
 let dpr = 1
@@ -380,14 +1140,13 @@ let raf = null
 let lastTime = 0
 let resizeObserver = null
 let gustTimer = null
-let reduceMotion = false  // 由站点动效开关决定（composables/useMotion.js）
 
 function random (min, max) {
   return min + Math.random() * (max - min)
 }
 
 function makePetal (x, y, burst = false) {
-  const depth = random(.35, 1.35)
+  const depth = random(0.35, 1.35)
   const ambient = !burst
   return {
     x,
@@ -400,32 +1159,32 @@ function makePetal (x, y, burst = false) {
     spin: random(-3.4, 3.4),
     phase: random(0, Math.PI * 2),
     wave: random(12, 44) * depth,
-    scale: random(.75, 1.25),
-    alpha: random(.36, .88) * Math.min(1, .58 + depth * .38),
+    scale: random(0.75, 1.25),
+    alpha: random(0.36, 0.88) * Math.min(1, 0.58 + depth * 0.38),
     age: 0,
     ttl: burst ? random(2.8, 4.6) : Infinity,
     ambient,
-    hue: Math.random() < .24 ? '#e5b7ee' : (Math.random() < .5 ? '#ffd0e2' : '#f4a7c8')
+    hue: Math.random() < 0.24 ? '#e5b7ee' : (Math.random() < 0.5 ? '#ffd0e2' : '#f4a7c8')
   }
 }
 
 function seedAmbient () {
   petals = []
-  const count = reduceMotion ? 12 : 32
+  const count = reduceMotion.value ? 12 : 30
   for (let i = 0; i < count; i++) {
-    petals.push(makePetal(random(0, width), random(-height * .2, height), false))
+    petals.push(makePetal(random(0, width), random(-height * 0.2, height), false))
   }
 }
 
 function burstPetals () {
   if (!width || !height) return
-  const count = reduceMotion ? 48 : 170
+  const count = reduceMotion.value ? 48 : 160
   for (let i = 0; i < count; i++) {
-    const x = width * random(.39, .65)
-    const y = height * random(.18, .55)
+    // 花雨从小岛右前方那几棵大樱花上炸开
+    const x = width * random(0.42, 0.82)
+    const y = height * random(0.3, 0.62)
     petals.push(makePetal(x, y, true))
   }
-  // 限制总数，连续点击也不会无限堆积
   if (petals.length > 460) petals = petals.slice(petals.length - 460)
   gusting.value = false
   requestAnimationFrame(() => { gusting.value = true })
@@ -433,7 +1192,7 @@ function burstPetals () {
   gustTimer = setTimeout(() => { gusting.value = false }, 1500)
 }
 
-function resize () {
+function resizeCanvas () {
   const cvs = petalCanvas.value
   if (!cvs) return
   const rect = cvs.getBoundingClientRect()
@@ -447,33 +1206,33 @@ function resize () {
 }
 
 function drawPetal (p, time) {
-  const flutter = 1 + Math.sin(time * 4 + p.phase) * .22
+  const flutter = 1 + Math.sin(time * 4 + p.phase) * 0.22
   const scale = p.scale * flutter
   canvasCtx.save()
   canvasCtx.translate(p.x, p.y)
   canvasCtx.rotate(p.rot)
   canvasCtx.scale(scale, scale)
   canvasCtx.globalAlpha = Math.max(0, p.alpha)
-  if (p.depth < .6) canvasCtx.filter = 'blur(.55px)'
+  if (p.depth < 0.6) canvasCtx.filter = 'blur(.55px)'
   canvasCtx.fillStyle = p.hue
   canvasCtx.beginPath()
   canvasCtx.moveTo(0, -p.size)
-  canvasCtx.bezierCurveTo(p.size * .9, -p.size * .85, p.size * 1.08, p.size * .25, 0, p.size)
-  canvasCtx.bezierCurveTo(-p.size * 1.08, p.size * .25, -p.size * .9, -p.size * .85, 0, -p.size)
+  canvasCtx.bezierCurveTo(p.size * 0.9, -p.size * 0.85, p.size * 1.08, p.size * 0.25, 0, p.size)
+  canvasCtx.bezierCurveTo(-p.size * 1.08, p.size * 0.25, -p.size * 0.9, -p.size * 0.85, 0, -p.size)
   canvasCtx.fill()
-  canvasCtx.globalAlpha *= .55
+  canvasCtx.globalAlpha *= 0.55
   canvasCtx.strokeStyle = '#fff4fa'
-  canvasCtx.lineWidth = .65
+  canvasCtx.lineWidth = 0.65
   canvasCtx.beginPath()
-  canvasCtx.moveTo(0, -p.size * .72)
-  canvasCtx.lineTo(0, p.size * .65)
+  canvasCtx.moveTo(0, -p.size * 0.72)
+  canvasCtx.lineTo(0, p.size * 0.65)
   canvasCtx.stroke()
   canvasCtx.restore()
 }
 
 function frame (time) {
   if (!lastTime) lastTime = time
-  const dt = Math.min(.04, (time - lastTime) / 1000)
+  const dt = Math.min(0.04, (time - lastTime) / 1000)
   lastTime = time
   canvasCtx.clearRect(0, 0, width, height)
   const seconds = time / 1000
@@ -489,33 +1248,52 @@ function frame (time) {
 
     if (p.ambient) {
       if (p.y > height + 18 || p.x > width + 28 || p.x < -35) {
-        Object.assign(p, makePetal(random(-40, width * .7), -18, false))
+        Object.assign(p, makePetal(random(-40, width * 0.7), -18, false))
       }
     } else if (p.age > p.ttl - 1) {
-      p.alpha = Math.max(0, p.alpha - dt * .72)
+      p.alpha = Math.max(0, p.alpha - dt * 0.72)
     }
     drawPetal(p, seconds)
   }
 
-  petals = petals.filter((p) => p.ambient || (p.age < p.ttl && p.alpha > .015 && p.x < width + 180 && p.y < height + 100))
+  petals = petals.filter((p) => p.ambient || (p.age < p.ttl && p.alpha > 0.015 && p.x < width + 180 && p.y < height + 100))
   raf = requestAnimationFrame(frame)
+}
+
+/* ---------- 生命周期 ---------- */
+let stageObserver = null
+
+function syncStage () {
+  const el = stageEl.value
+  if (!el) return
+  const rect = el.getBoundingClientRect()
+  stageW.value = rect.width
+  stageH.value = rect.height
 }
 
 onMounted(() => {
   refreshWallet()
   startTicker()
-  sceneEl = petalCanvas.value
-  canvasCtx = sceneEl.getContext('2d')
-  reduceMotion = !motionEnabled()
-  resize()
-  resizeObserver = new ResizeObserver(resize)
-  resizeObserver.observe(sceneEl)
+  reduceMotion.value = !motionEnabled()
+
+  syncStage()
+  stageObserver = new ResizeObserver(syncStage)
+  if (stageEl.value) stageObserver.observe(stageEl.value)
+
+  const cvs = petalCanvas.value
+  canvasCtx = cvs.getContext('2d')
+  resizeCanvas()
+  resizeObserver = new ResizeObserver(resizeCanvas)
+  resizeObserver.observe(cvs)
   raf = requestAnimationFrame(frame)
+  window.addEventListener('resize', syncStage)
 })
 
 onBeforeUnmount(() => {
+  if (stageObserver) stageObserver.disconnect()
   if (raf) cancelAnimationFrame(raf)
   if (resizeObserver) resizeObserver.disconnect()
+  window.removeEventListener('resize', syncStage)
   clearTimeout(gustTimer)
 })
 </script>
@@ -526,83 +1304,218 @@ onBeforeUnmount(() => {
   z-index: 2;
   width: 100%;
   min-height: 100vh;
-  padding: 0 20px 24px;
+  padding: 0 16px 16px;
 }
 .town {
   position: relative;
-  width: min(1440px, 100%);
-  height: calc(100svh - 128px);
-  min-height: 660px;
+  width: min(1520px, 100%);
+  height: calc(100svh - 118px);
+  min-height: 620px;
   margin: 0 auto;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, .7);
+  border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: 30px;
-  background: linear-gradient(180deg, #d8c3e5, #f6dce5);
-  box-shadow: 0 34px 80px -42px rgba(102, 64, 100, .55), var(--gloss);
+  background: linear-gradient(180deg, #d3c2e6 0%, #ecd2e2 42%, #fbe6dc 74%, #fff4e7 100%);
+  box-shadow: 0 34px 80px -42px rgba(102, 64, 100, 0.55), var(--gloss);
   isolation: isolate;
 }
-.town__art,
-.town__petals {
+
+/* 天空：右上角一枚很淡的太阳 */
+.town__sky {
   position: absolute;
   inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+.sky__sun {
+  position: absolute;
+  top: 6%;
+  right: 12%;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 246, 219, 0.85), rgba(255, 246, 219, 0) 68%);
+}
+
+.town__stage {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  transition: transform 0.5s var(--ease);
+  will-change: transform;
+}
+.town__svg {
+  display: block;
   width: 100%;
   height: 100%;
 }
-.town__art { z-index: 1; display: block; }
-.town__petals { z-index: 3; pointer-events: none; }
-.tree-art {
-  transform-origin: 760px 720px;
-  animation: tree-breathe 7s ease-in-out infinite;
+
+/* ---------- 云的缓慢横移 ---------- */
+.cloud {
+  transform-box: fill-box;
+  transform-origin: center;
 }
-.town--gust .tree-art { animation: tree-gust 1.2s var(--ease); }
-@keyframes tree-breathe {
-  0%, 100% { transform: rotate(-.12deg); }
-  50% { transform: rotate(.16deg); }
-}
-@keyframes tree-gust {
-  0%, 100% { transform: rotate(0); }
-  30% { transform: rotate(.75deg); }
-  58% { transform: rotate(-.35deg); }
-  78% { transform: rotate(.18deg); }
-}
-.cloud { transform-box: fill-box; transform-origin: center; }
-.cloud--one { animation: cloud-drift 34s ease-in-out infinite; }
-.cloud--two { animation: cloud-drift 42s ease-in-out infinite reverse; }
-.cloud--three { animation: cloud-drift 38s ease-in-out infinite; }
+.cloud--a { animation: cloud-drift 38s ease-in-out infinite; }
+.cloud--b { animation: cloud-drift 46s ease-in-out infinite reverse; }
+.cloud--c { animation: cloud-drift 32s ease-in-out infinite; }
 @keyframes cloud-drift {
-  0%, 100% { transform: translateX(-10px); }
-  50% { transform: translateX(28px); }
+  0%, 100% { transform: translateX(-14px); }
+  50% { transform: translateX(26px); }
 }
 
-.venue { cursor: pointer; transform-box: fill-box; transform-origin: center bottom; transition: transform .35s var(--ease), filter .35s; }
-.venue:hover, .venue:focus-visible {
-  transform: translateY(-6px);
-  filter: drop-shadow(0 10px 16px rgba(90, 50, 80, .35));
+/* ---------- 建筑交互 ---------- */
+.venue {
+  cursor: pointer;
+  outline: none;
 }
-.venue:focus { outline: none; }
-.venue:focus-visible .venue__sign rect { stroke: rgba(255, 255, 255, .95); stroke-width: 2; }
-.venue__sign rect {
-  fill: rgba(255, 252, 253, .92);
-  stroke: rgba(255, 255, 255, .8);
-  transition: fill .3s, stroke .3s;
+.venue__body {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  transition: transform 0.35s var(--ease), filter 0.35s var(--ease);
+  will-change: transform;
 }
-.venue:hover .venue__sign rect, .venue:focus-visible .venue__sign rect { fill: #fff; }
-.venue__cn {
-  fill: #6b4864;
+.venue.is-hot .venue__body {
+  transform: translateY(-7px) scale(1.012);
+  filter: drop-shadow(0 12px 14px rgba(86, 48, 78, 0.24));
+}
+.venue__halo {
+  transition: opacity 0.35s var(--ease);
+}
+.venue.is-hot .venue__halo {
+  opacity: 0.24;
+}
+.venue__shadow {
+  transition: opacity 0.35s var(--ease);
+}
+.venue.is-hot .venue__shadow {
+  opacity: 0.26;
+}
+.venue:focus-visible .venue__halo {
+  opacity: 0.32;
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 2;
+}
+
+/* 樱花树：点一下落花 */
+.tree {
+  cursor: pointer;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  transition: transform 0.4s var(--ease);
+}
+.tree:hover { transform: scale(1.03); }
+.tree:focus-visible { outline: none; }
+
+.walker__ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: walker-pulse 3s ease-in-out infinite;
+}
+.walker {
+  animation: walker-bob 3.4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+@keyframes walker-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.86); }
+  50% { opacity: 0.75; transform: scale(1.1); }
+}
+@keyframes walker-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2.5px); }
+}
+.waterfall {
+  animation: fall-breathe 4.5s ease-in-out infinite;
+}
+@keyframes fall-breathe {
+  0%, 100% { opacity: 0.86; }
+  50% { opacity: 1; }
+}
+.fountain__jet {
+  animation: jet-breathe 3.6s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+@keyframes jet-breathe {
+  0%, 100% { opacity: 0.5; transform: scaleY(0.9); }
+  50% { opacity: 0.85; transform: scaleY(1.08); }
+}
+.water__shimmer {
+  animation: shimmer 6s ease-in-out infinite;
+}
+@keyframes shimmer {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.85; }
+}
+
+/* ---------- 建筑名牌（HTML 层） ---------- */
+.hotspots {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+.hotspot {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 15px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  border-radius: 13px;
+  background: rgba(255, 253, 253, 0.9);
+  box-shadow: 0 10px 22px -14px rgba(88, 50, 84, 0.8);
+  color: #6b4864;
+  font: inherit;
+  line-height: 1.05;
+  cursor: pointer;
+  pointer-events: auto;
+  transform: translate(-50%, -100%);
+  transition: transform 0.28s var(--ease), background 0.28s, box-shadow 0.28s;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  white-space: nowrap;
+}
+.hotspot__cn {
   font-family: var(--font-serif);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
-  letter-spacing: .12em;
-  text-anchor: middle;
+  letter-spacing: 0.1em;
 }
-.venue__en {
-  fill: rgba(140, 110, 130, .62);
-  font-size: 7.5px;
-  letter-spacing: .24em;
-  text-anchor: middle;
+.hotspot__en {
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  color: rgba(140, 110, 130, 0.7);
+}
+.hotspot__tail {
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  border-right: 1px solid rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.9);
+  background: inherit;
+  transform: rotate(45deg);
+  border-radius: 0 0 2px 0;
+}
+.hotspot.is-hot {
+  transform: translate(-50%, calc(-100% - 6px));
+  background: linear-gradient(120deg, #c9658f, #8a6bb4);
+  border-color: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 16px 30px -16px rgba(112, 52, 104, 0.9);
+  color: #fffbff;
+}
+.hotspot.is-hot .hotspot__en { color: rgba(255, 245, 252, 0.75); }
+.hotspot.is-hot .hotspot__tail { border-color: rgba(255, 255, 255, 0.5); }
+.hotspot:focus-visible {
+  outline: 2px solid var(--sakura-500);
+  outline-offset: 4px;
 }
 
-/* 钱包胶囊：悬在画面右上角 */
+/* ---------- 钱包胶囊 ---------- */
 .town__wallet {
   position: absolute;
   z-index: 6;
@@ -613,11 +1526,11 @@ onBeforeUnmount(() => {
   gap: 10px;
   padding: 8px 14px;
   border-radius: 999px;
-  background: rgba(255, 252, 253, .78);
+  background: rgba(255, 252, 253, 0.82);
   backdrop-filter: blur(16px) saturate(150%);
   -webkit-backdrop-filter: blur(16px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, .9);
-  box-shadow: 0 14px 30px -22px rgba(102, 64, 100, .8);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 14px 30px -22px rgba(102, 64, 100, 0.8);
 }
 .tw__coin {
   display: inline-flex;
@@ -639,242 +1552,154 @@ onBeforeUnmount(() => {
   color: #7a5a24;
   background: radial-gradient(circle at 34% 28%, #fff4d4, #f0c976 58%, #d9a94f);
 }
-.tw__sep { width: 1px; height: 14px; background: rgba(140, 110, 130, .18); }
+.tw__sep { width: 1px; height: 14px; background: rgba(140, 110, 130, 0.18); }
 .tw__energy { display: inline-flex; align-items: baseline; gap: 3px; font-variant-numeric: tabular-nums; }
 .tw__energy b { font-size: 13px; color: #6b4864; }
-.tw__energy i { font-style: normal; font-size: 10px; color: rgba(140, 110, 130, .7); }
-.tw__energy em { font-style: normal; font-size: 9px; letter-spacing: .1em; color: rgba(140, 110, 130, .6); margin-left: 2px; }
+.tw__energy i { font-style: normal; font-size: 10px; color: rgba(140, 110, 130, 0.7); }
+.tw__energy em { font-style: normal; font-size: 9px; letter-spacing: 0.1em; color: rgba(140, 110, 130, 0.6); margin-left: 2px; }
 
-.tree-hit {
+/* ---------- 花瓣层 ---------- */
+.town__petals {
   position: absolute;
-  z-index: 4;
-  left: 34%;
-  top: 12%;
-  width: 40%;
-  height: 61%;
-  border: 0;
-  border-radius: 48%;
-  outline: 0;
-  background: transparent;
-  cursor: pointer;
-}
-.tree-hit:focus-visible {
-  outline: 2px dashed rgba(255, 244, 251, .85);
-  outline-offset: -18px;
-  background: rgba(255, 223, 239, .035);
+  inset: 0;
+  z-index: 5;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 
+/* ---------- 文案：左上角一块玻璃卡，压在天空上 ---------- */
 .town__intro {
   position: absolute;
-  z-index: 5;
-  top: 11%;
-  left: 5.4%;
-  width: min(430px, 36%);
+  z-index: 6;
+  top: 20px;
+  left: 20px;
+  width: 272px;
+  padding: 19px 20px 17px;
+  border: 1px solid rgba(255, 255, 255, 0.88);
+  border-radius: 22px;
+  background: rgba(255, 252, 253, 0.74);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  box-shadow: 0 22px 46px -30px rgba(96, 58, 92, 0.85), var(--gloss);
   color: #503e5d;
-  text-shadow: 0 1px 18px rgba(255, 247, 252, .45);
 }
 .town__eyebrow {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin: 0 0 18px;
+  margin: 0 0 12px;
   color: #825a85;
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 600;
-  letter-spacing: .2em;
+  letter-spacing: 0.18em;
 }
 .town__eyebrow span {
   width: 7px;
   height: 7px;
   border-radius: 50%;
   background: #d67eac;
-  box-shadow: 0 0 0 5px rgba(255, 223, 237, .34);
+  box-shadow: 0 0 0 5px rgba(255, 223, 237, 0.34);
 }
 .town__intro h1 {
   margin: 0;
   font-family: var(--font-serif);
-  font-size: clamp(34px, 3.3vw, 48px);
+  font-size: 26px;
   font-weight: 500;
-  line-height: 1.24;
-  letter-spacing: .025em;
-  color: #503b5e;
+  line-height: 1.34;
+  letter-spacing: 0.02em;
+  color: #4d395b;
 }
 .town__intro h1 em {
   font-style: normal;
-  color: #9c5d8a;
   background: linear-gradient(110deg, #77517c, #ba6f9a);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 .town__lede {
-  margin: 20px 0 0;
-  max-width: 340px;
-  color: rgba(82, 61, 91, .76);
-  font-size: 13px;
-  line-height: 1.95;
+  margin: 12px 0 0;
+  color: rgba(82, 61, 91, 0.74);
+  font-size: 11.5px;
+  line-height: 1.85;
 }
-.town__actions { display: flex; align-items: center; gap: 12px; margin-top: 26px; }
+.town__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 15px; }
 .town__primary,
 .town__secondary {
-  height: 43px;
+  height: 36px;
   border-radius: 999px;
   font: inherit;
-  font-size: 12px;
+  font-size: 11.5px;
   cursor: pointer;
-  transition: transform .25s var(--ease), box-shadow .25s, background .25s;
+  transition: transform 0.25s var(--ease), box-shadow 0.25s, background 0.25s;
 }
 .town__primary {
   display: inline-flex;
   align-items: center;
-  gap: 14px;
-  padding: 0 21px;
+  gap: 10px;
+  padding: 0 15px;
   border: 0;
   background: linear-gradient(120deg, #d780ac, #9a78bd);
   color: #fff9fc;
-  box-shadow: 0 14px 30px -18px rgba(141, 78, 126, .8);
+  box-shadow: 0 14px 30px -18px rgba(141, 78, 126, 0.8);
 }
-.town__primary svg { width: 16px; height: 16px; transition: transform .25s; }
-.town__primary:hover { transform: translateY(-2px); box-shadow: 0 18px 34px -18px rgba(141, 78, 126, .9); }
+.town__primary svg { width: 14px; height: 14px; transition: transform 0.25s; }
+.town__primary:hover { transform: translateY(-2px); box-shadow: 0 18px 34px -18px rgba(141, 78, 126, 0.9); }
 .town__primary:hover svg { transform: translateX(3px); }
 .town__secondary {
-  padding: 0 16px;
-  border: 1px solid rgba(160, 107, 143, .25);
-  background: rgba(255, 247, 251, .28);
+  padding: 0 13px;
+  border: 1px solid rgba(160, 107, 143, 0.28);
+  background: rgba(255, 247, 251, 0.5);
   color: #815879;
-  backdrop-filter: blur(8px);
 }
-.town__secondary:hover { transform: translateY(-2px); background: rgba(255, 249, 252, .62); }
+.town__secondary:hover { transform: translateY(-2px); background: rgba(255, 249, 252, 0.85); }
 .town__click-hint {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 22px 0 0;
-  color: rgba(115, 78, 111, .58);
-  font-size: 10.5px;
-  letter-spacing: .08em;
+  gap: 7px;
+  margin: 12px 0 0;
+  color: rgba(115, 78, 111, 0.62);
+  font-size: 10px;
+  letter-spacing: 0.04em;
 }
 .town__click-hint span { color: #c17ca5; animation: hint-pulse 2.8s ease-in-out infinite; }
-@keyframes hint-pulse { 50% { transform: rotate(45deg) scale(1.15); opacity: .55; } }
+@keyframes hint-pulse {
+  50% { transform: rotate(45deg) scale(1.15); opacity: 0.55; }
+}
 .town__foot {
   position: absolute;
-  z-index: 5;
-  right: 26px;
-  bottom: 18px;
-  margin: 0;
-  color: rgba(255, 238, 246, .58);
-  font-size: 8px;
-  letter-spacing: .2em;
-  text-shadow: 0 1px 6px rgba(69, 43, 65, .4);
-}
-
-@media (max-width: 1100px) {
-  .town__intro { left: 4.2%; width: 360px; }
-  .town__intro h1 { font-size: 38px; }
-  .town__lede { font-size: 12px; }
-}
-@media (max-width: 820px) {
-  .town-page { padding: 0 12px 18px; }
-  .town { min-height: 790px; height: calc(100svh - 116px); border-radius: 24px; }
-  .town__intro {
-    top: 6%;
-    left: 50%;
-    width: 92%;
-    max-width: 460px;
-    transform: translateX(-50%);
-    text-align: center;
-  }
-  .town__eyebrow { margin-bottom: 12px; font-size: 9px; }
-  .town__intro h1 { font-size: clamp(30px, 8vw, 43px); }
-  .town__intro h1 br { display: none; }
-  .town__lede { max-width: 390px; margin: 14px auto 0; font-size: 11.5px; }
-  .town__actions { justify-content: center; margin-top: 18px; }
-  .town__click-hint { justify-content: center; margin-top: 14px; }
-  .venue { cursor: pointer; transform-box: fill-box; transform-origin: center bottom; transition: transform .35s var(--ease), filter .35s; }
-.venue:hover, .venue:focus-visible {
-  transform: translateY(-6px);
-  filter: drop-shadow(0 10px 16px rgba(90, 50, 80, .35));
-}
-.venue:focus { outline: none; }
-.venue:focus-visible .venue__sign rect { stroke: rgba(255, 255, 255, .95); stroke-width: 2; }
-.venue__sign rect {
-  fill: rgba(255, 252, 253, .92);
-  stroke: rgba(255, 255, 255, .8);
-  transition: fill .3s, stroke .3s;
-}
-.venue:hover .venue__sign rect, .venue:focus-visible .venue__sign rect { fill: #fff; }
-.venue__cn {
-  fill: #6b4864;
-  font-family: var(--font-serif);
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: .12em;
-  text-anchor: middle;
-}
-.venue__en {
-  fill: rgba(140, 110, 130, .62);
-  font-size: 7.5px;
-  letter-spacing: .24em;
-  text-anchor: middle;
-}
-
-/* 钱包胶囊：悬在画面右上角 */
-.town__wallet {
-  position: absolute;
   z-index: 6;
-  top: 16px;
-  right: 18px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  background: rgba(255, 252, 253, .78);
-  backdrop-filter: blur(16px) saturate(150%);
-  -webkit-backdrop-filter: blur(16px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, .9);
-  box-shadow: 0 14px 30px -22px rgba(102, 64, 100, .8);
+  right: 26px;
+  bottom: 16px;
+  margin: 0;
+  color: rgba(120, 78, 112, 0.5);
+  font-size: 8px;
+  letter-spacing: 0.2em;
 }
-.tw__coin {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 14px;
-  font-weight: 700;
-  color: #8a5f27;
-  font-variant-numeric: tabular-nums;
+/* 四角压暗：让视线落在中间的小岛上 */
+.town__vig {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: radial-gradient(120% 90% at 50% 42%, rgba(255, 255, 255, 0) 46%, rgba(126, 92, 122, 0.14) 100%);
 }
-.tw__coin i {
-  width: 17px;
-  height: 17px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  font-style: normal;
-  font-size: 9.5px;
-  color: #7a5a24;
-  background: radial-gradient(circle at 34% 28%, #fff4d4, #f0c976 58%, #d9a94f);
-}
-.tw__sep { width: 1px; height: 14px; background: rgba(140, 110, 130, .18); }
-.tw__energy { display: inline-flex; align-items: baseline; gap: 3px; font-variant-numeric: tabular-nums; }
-.tw__energy b { font-size: 13px; color: #6b4864; }
-.tw__energy i { font-style: normal; font-size: 10px; color: rgba(140, 110, 130, .7); }
-.tw__energy em { font-style: normal; font-size: 9px; letter-spacing: .1em; color: rgba(140, 110, 130, .6); margin-left: 2px; }
 
-.tree-hit { left: 15%; top: 29%; width: 70%; height: 55%; }
-  .town__foot { right: 50%; transform: translateX(50%); white-space: nowrap; font-size: 7px; }
+/* ---------- 小笔记本（仍然是电脑端，只是窗口窄一点） ---------- */
+@media (max-width: 1180px) {
+  .town__intro { width: 250px; padding: 17px 18px 16px; }
+  .town__intro h1 { font-size: 24px; }
+  .town__lede { font-size: 11px; }
 }
-@media (max-width: 480px) {
-  .town { min-height: 730px; }
-  .town__lede { display: none; }
-  .town__intro { top: 5%; }
-  .town__primary, .town__secondary { height: 39px; font-size: 11px; }
-  .town__click-hint { font-size: 9.5px; }
-}
+
 /* 动效关闭态由 <html class="no-motion"> 驱动，见 composables/useMotion.js */
-html.no-motion .tree-art,
 html.no-motion .cloud,
+html.no-motion .walker,
+html.no-motion .walker__ring,
+html.no-motion .fountain__jet,
+html.no-motion .waterfall,
+html.no-motion .water__shimmer,
 html.no-motion .town__click-hint span { animation: none; }
-html.no-motion .town__primary,
-html.no-motion .town__secondary { transition: none; }
+html.no-motion .town__stage { transition: none; transform: none !important; }
+html.no-motion .venue__body { transition: none; }
 </style>

@@ -81,7 +81,14 @@ public class EconomyController {
             @Valid @RequestBody(required = false) WorkRequest req,
             @RequestHeader(value = "Authorization", required = false) String auth) {
         Long uid = authSupport.requireUserId(auth);
-        Integer score = req == null ? 0 : req.getScore();
+        // 注意：不能写成 req == null ? 0 : req.getScore()。
+        // 三元表达式两边一边是 int 字面量、一边是 Integer，Java 会做数值提升
+        // 把 Integer 分支自动拆箱；body 传 {} 或不传 score 时 getScore() 是 null，
+        // 拆箱直接 NPE，最终变成 500「服务器内部错误」。
+        Integer score = req == null ? null : req.getScore();
+        if (score == null) {
+            score = 0;
+        }
         return economyService.work(uid, score);
     }
 
