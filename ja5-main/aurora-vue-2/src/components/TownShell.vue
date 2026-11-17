@@ -124,7 +124,7 @@
       <Transition name="ledger">
         <div
           v-if="statsOpen"
-          class="stats"
+          class="stpanel"
           role="dialog"
           aria-modal="true"
           aria-label="角色属性"
@@ -139,10 +139,30 @@
               <button class="stats__close" type="button" aria-label="关闭" @click="statsOpen = false">✕</button>
             </header>
 
-            <p class="stats__title">称号 · <b>{{ title }}</b><em>总成长 {{ total }}</em></p>
+            <p class="stats__title">
+              称号 · <b>{{ title }}</b>
+              <em v-if="panelMode === 'battle'">战力 {{ power }}</em>
+              <em v-else>总成长 {{ total }}</em>
+            </p>
+
+            <!-- 形态切换：日常只留四项，探索战斗全开 -->
+            <div class="stats__modes" role="tablist" aria-label="面板形态">
+              <button
+                v-for="m in PANEL_MODES"
+                :key="m.key"
+                type="button"
+                class="stats__mode"
+                :class="{ 'is-on': panelMode === m.key }"
+                role="tab"
+                :aria-selected="panelMode === m.key"
+                @click="setPanelMode(m.key)"
+              >
+                <b>{{ m.label }}</b><i>{{ m.en }}</i>
+              </button>
+            </div>
 
             <ul class="stats__list">
-              <li v-for="s in STATS" :key="s.key" class="stats__row">
+              <li v-for="s in visibleStats" :key="s.key" class="stats__row">
                 <span class="stats__dot" :style="{ background: s.color }"></span>
                 <span class="stats__name">{{ s.label }}<i>{{ s.en }}</i></span>
                 <span class="stats__bar">
@@ -152,9 +172,21 @@
               </li>
             </ul>
 
-            <p class="stats__note">
-              属性来自小镇里的日常：上课、训练、喝咖啡、许愿。
-              这里的「体力」是角色耐力，和钱包里会随时间恢复的体力值不是一回事。
+            <!-- 战斗态：再折一层换算，每个数字都能追到某一项属性 -->
+            <div v-if="panelMode === 'battle'" class="stats__combat">
+              <p class="stats__sub">战斗换算<span>由上面的属性折算</span></p>
+              <ul class="stats__grid">
+                <li v-for="c in combat" :key="c.key">
+                  <span class="stats__grid-label">{{ c.label }}<i>{{ c.en }}</i></span>
+                  <b :style="{ color: c.color }">{{ c.value }}<em>{{ c.unit }}</em></b>
+                  <span class="stats__grid-hint">{{ c.hint }}</span>
+                </li>
+              </ul>
+            </div>
+
+            <p v-else class="stats__note">
+              {{ hiddenStats.map(h => h.label).join(' · ') }} 这几项过日子用不上，先收起来了 ——
+              切到「探索战斗」就会全部出现。这里的「体力」是角色耐力，和钱包里会随时间恢复的体力值不是一回事。
             </p>
           </div>
         </div>
@@ -178,7 +210,10 @@ import { computed, onMounted, ref } from 'vue'
 import SiteNav from './SiteNav.vue'
 import InteriorScene from './InteriorScene.vue'
 import { useEconomy } from '../composables/useEconomy'
-import { stats, STATS, toasts, levelOf, title, total, MAX_VALUE, mood, moodMeta } from '../composables/useStats'
+import {
+  stats, STATS, toasts, levelOf, title, total, MAX_VALUE, mood, moodMeta,
+  PANEL_MODES, panelMode, setPanelMode, visibleStats, hiddenStats, power, combat
+} from '../composables/useStats'
 import { fetchLogs } from '../api/economy'
 
 defineProps({
@@ -345,7 +380,7 @@ onMounted(() => {
 .hud__book--stats { display: inline-flex; align-items: center; }
 
 /* ---------- 属性面板 ---------- */
-.stats {
+.stpanel {
   position: fixed;
   inset: 0;
   z-index: 95;
@@ -358,9 +393,9 @@ onMounted(() => {
 }
 .stats__panel {
   width: min(460px, 100%);
-  max-height: min(86vh, 640px);
+  max-height: min(94vh, 760px);
   overflow: auto;
-  padding: 22px 24px 20px;
+  padding: 18px 22px 18px;
   border-radius: 22px;
   background: #fffdfc;
   box-shadow: 0 30px 70px -30px rgba(88, 50, 84, .6), 0 0 0 1px rgba(255, 255, 255, .9);
@@ -377,12 +412,83 @@ onMounted(() => {
 
 .stats__title {
   display: flex; align-items: baseline; gap: 8px;
-  margin: 14px 0 16px; font-size: 12px; color: var(--ink-soft);
+  margin: 11px 0 13px; font-size: 12px; color: var(--ink-soft);
 }
 .stats__title b { font-family: var(--font-serif); font-size: 15px; color: var(--sakura-700); letter-spacing: .04em; }
 .stats__title em { margin-left: auto; font-style: normal; font-size: 10.5px; color: var(--faint); letter-spacing: .08em; }
 
-.stats__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 11px; }
+.stats__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+
+/* ---------- 形态切换 ---------- */
+.stats__modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin: 0 0 14px;
+  padding: 3px;
+  border-radius: 13px;
+  background: #f7eef2;
+}
+.stats__mode {
+  display: grid;
+  gap: 1px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  cursor: pointer;
+  transition: background .25s, color .25s, box-shadow .25s;
+}
+.stats__mode b { font-size: 11.5px; font-weight: 600; letter-spacing: .06em; }
+.stats__mode i { font-style: normal; font-size: 7px; letter-spacing: .16em; opacity: .55; }
+.stats__mode:hover { color: var(--sakura-700); }
+.stats__mode.is-on {
+  background: #fffdfc;
+  color: var(--sakura-700);
+  box-shadow: 0 6px 14px -10px rgba(88, 50, 84, .9);
+}
+.stats__mode.is-on i { opacity: .7; }
+
+/* ---------- 战斗换算 ---------- */
+.stats__combat { margin-top: 13px; padding-top: 11px; border-top: 1px dashed rgba(150, 110, 132, .24); }
+.stats__sub {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0 0 10px;
+  font-size: 10.5px;
+  letter-spacing: .1em;
+  color: var(--ink-soft);
+}
+.stats__sub span { font-size: 9px; letter-spacing: .04em; color: var(--faint); }
+.stats__grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.stats__grid li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 2px 6px;
+  padding: 6px 10px;
+  border-radius: 11px;
+  background: #fbf6f8;
+}
+.stats__grid-label { display: flex; align-items: baseline; gap: 4px; font-size: 11px; color: var(--ink-soft); }
+.stats__grid-label i { font-style: normal; font-size: 7px; letter-spacing: .12em; color: var(--faint); }
+.stats__grid b { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stats__grid b em { font-style: normal; font-size: 9px; font-weight: 500; opacity: .7; }
+.stats__grid-hint { grid-column: 1 / -1; font-size: 8.5px; letter-spacing: .04em; color: var(--faint); }
+/* 七项里最后一项单独收尾：横跨整行，不留一个空格子 */
+.stats__grid li:last-child:nth-child(odd) { grid-column: 1 / -1; }
+/* 七项里最后一项单独收尾：横跨整行，不留一个空格子 */
+.stats__grid li:last-child:nth-child(odd) { grid-column: 1 / -1; }
 .stats__row { display: grid; grid-template-columns: 8px 86px 1fr 44px; align-items: center; gap: 9px; }
 .stats__dot { width: 8px; height: 8px; border-radius: 50%; }
 .stats__name {

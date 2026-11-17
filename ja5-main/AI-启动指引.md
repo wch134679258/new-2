@@ -1126,3 +1126,167 @@ const pt = (t, side = 0) => (rightDoor ? [x1 + t, dcy + side] : [dcx + side, y1 
 - 小镇四张地图逐页截图核对：屋顶木檐口/天窗/烟囱/落花、四种窗户、门前小院与地面细节都在
 - 属性面板：7 行、称号、总成长正常；连点三次「来一份」提示合并为「魅力 +6 / 心情 +24」
 - HUD：财富 128 · 体力 62/100 · 心情 94/100，三条状态各自独立
+
+---
+
+## 二十一、2026-11-18 属性面板两态：日常 / 探索战斗
+
+### 21.1 为什么分两套
+
+在镇上过日子只需要知道「我累不累、力气够不够、今天想不想读书」，
+敏捷 / 神秘 / 幸运这些要到出门探索、进战斗才用得上。
+所以面板做成两种形态，同一个面板里切，不用跳页。
+
+| 形态 | 显示 | 头部右侧 |
+|---|---|---|
+| 日常 DAILY | 体力 / 力量 / 智力 / 魅力（`DAILY_KEYS`） | 总成长 |
+| 探索战斗 ADVENTURE | 七项全开 + 一层「战斗换算」 | 战力 |
+
+切换状态存 `localStorage.sakura_panel_mode`，下次打开还记得。
+
+### 21.2 代码在哪
+
+`src/composables/useStats.js`：
+
+```js
+export const DAILY_KEYS = ['vigor', 'strength', 'wits', 'charm']
+export const panelMode = ref('daily')          // 存 localStorage
+export function setPanelMode(key)              // 只认 daily / battle
+export const visibleStats = computed(...)      // 面板与小镇速览都用它
+export const hiddenStats  = computed(...)      // 日常模式那句提示用
+export const power   = computed(...)           // 七项加权
+export const combat  = computed(...)           // 换算表
+```
+
+**要改「日常留哪几项」，只改 `DAILY_KEYS` 一处**，面板、小镇速览、提示文案会一起变。
+
+`TownShell.vue` 里的面板结构：
+
+```
+称号 / 总成长（战斗态显示战力）
+[日常 | 探索战斗]      ← segmented control
+属性行（v-for="s in visibleStats"）
+战斗换算（v-if panelMode === 'battle'）／提示（v-else）
+```
+
+### 21.3 战斗换算是怎么折的
+
+每个数都能追到某一项属性，不是凭空调的：
+
+| 数值 | 公式 | 来源 |
+|---|---|---|
+| 生命 HP | `40 + 体力×4` | 体力 |
+| 攻击 ATK | `力量×1.6 + 体力×0.4` | 力量为主 |
+| 防御 DEF | `体力×1.1 + 力量×0.5` | 体力 + 力量 |
+| 闪避 EVA | `敏捷×1.2 %` | 敏捷 |
+| 暴击 CRIT | `4 + 幸运×0.6 %` | 幸运 |
+| 灵视 SIGHT | `神秘×1.5` | 神秘 |
+| 鼓舞 RALLY | `魅力×1.3` | 魅力 |
+
+七项属性正好各管一个战斗数值，加新属性时记得同步加一行，否则面板会出现「有属性没换算」。
+
+### 21.4 踩的坑：`.stats` 又被全局样式吃了
+
+面板根类名一开始叫 `.stats`，结果 `style.css` 里有一份落地页的：
+
+```css
+.stats { display: flex; gap: 26px; margin-top: 34px; }
+.stats div b { color: #fff; }        /* ← 面板里的标题全变白，看不见 */
+.stats div span { color: rgba(255,235,244,.62); }
+```
+
+于是「日常 / 探索战斗」两个按钮的文字直接消失（白底白字）。
+**改成 `.stpanel` 就好了**，内部 `.stats__*` 不受影响（类名是整词匹配，`stats__mode` ≠ `stats`）。
+
+这已经是第三次栽在同一类坑里了（前两次：`.brand`、`.tabs`）。
+**给新组件起类名前，先 `grep` 一遍 `src/style.css`。**
+
+### 21.5 验证记录
+
+- `vite build` 通过（105 模块）
+- 日常态：4 行（体力/力量/智力/魅力）+ 一句「敏捷 · 神秘 · 幸运 先收起来了」
+- 战斗态：7 行 + 战斗换算 7 格（生命 80 / 攻击 20 / 防御 16 / 闪避 12% / 暴击 8% / 灵视 9 / 鼓舞 36），战力 95
+- 切换后刷新页面仍是上次的形态（`localStorage.sakura_panel_mode`）
+- 面板高度按 1440×900 调到 760px，战斗态一屏放得下；更矮的窗口内部滚动
+
+---
+
+## 二十一、2026-11-18 属性面板两态：日常 / 探索战斗
+
+### 21.1 为什么分两套
+
+在镇上过日子只需要知道「我累不累、力气够不够、今天想不想读书」，
+敏捷 / 神秘 / 幸运这些要到出门探索、进战斗才用得上。
+所以面板做成两种形态，同一个面板里切，不用跳页。
+
+| 形态 | 显示 | 头部右侧 |
+|---|---|---|
+| 日常 DAILY | 体力 / 力量 / 智力 / 魅力（`DAILY_KEYS`） | 总成长 |
+| 探索战斗 ADVENTURE | 七项全开 + 一层「战斗换算」 | 战力 |
+
+切换状态存 `localStorage.sakura_panel_mode`，下次打开还记得。
+
+### 21.2 代码在哪
+
+`src/composables/useStats.js`：
+
+```js
+export const DAILY_KEYS = ['vigor', 'strength', 'wits', 'charm']
+export const panelMode = ref('daily')          // 存 localStorage
+export function setPanelMode(key)              // 只认 daily / battle
+export const visibleStats = computed(...)      // 面板与小镇速览都用它
+export const hiddenStats  = computed(...)      // 日常模式那句提示用
+export const power   = computed(...)           // 七项加权
+export const combat  = computed(...)           // 换算表
+```
+
+**要改「日常留哪几项」，只改 `DAILY_KEYS` 一处**，面板、小镇速览、提示文案会一起变。
+
+`TownShell.vue` 里的面板结构：
+
+```
+称号 / 总成长（战斗态显示战力）
+[日常 | 探索战斗]      ← segmented control
+属性行（v-for="s in visibleStats"）
+战斗换算（v-if panelMode === 'battle'）／提示（v-else）
+```
+
+### 21.3 战斗换算是怎么折的
+
+每个数都能追到某一项属性，不是凭空调的：
+
+| 数值 | 公式 | 来源 |
+|---|---|---|
+| 生命 HP | `40 + 体力×4` | 体力 |
+| 攻击 ATK | `力量×1.6 + 体力×0.4` | 力量为主 |
+| 防御 DEF | `体力×1.1 + 力量×0.5` | 体力 + 力量 |
+| 闪避 EVA | `敏捷×1.2 %` | 敏捷 |
+| 暴击 CRIT | `4 + 幸运×0.6 %` | 幸运 |
+| 灵视 SIGHT | `神秘×1.5` | 神秘 |
+| 鼓舞 RALLY | `魅力×1.3` | 魅力 |
+
+七项属性正好各管一个战斗数值，加新属性时记得同步加一行，否则面板会出现「有属性没换算」。
+
+### 21.4 踩的坑：`.stats` 又被全局样式吃了
+
+面板根类名一开始叫 `.stats`，结果 `style.css` 里有一份落地页的：
+
+```css
+.stats { display: flex; gap: 26px; margin-top: 34px; }
+.stats div b { color: #fff; }        /* ← 面板里的标题全变白，看不见 */
+.stats div span { color: rgba(255,235,244,.62); }
+```
+
+于是「日常 / 探索战斗」两个按钮的文字直接消失（白底白字）。
+**改成 `.stpanel` 就好了**，内部 `.stats__*` 不受影响（类名是整词匹配，`stats__mode` ≠ `stats`）。
+
+这已经是第三次栽在同一类坑里了（前两次：`.brand`、`.tabs`）。
+**给新组件起类名前，先 `grep` 一遍 `src/style.css`。**
+
+### 21.5 验证记录
+
+- `vite build` 通过（105 模块）
+- 日常态：4 行（体力/力量/智力/魅力）+ 一句「敏捷 · 神秘 · 幸运 先收起来了」
+- 战斗态：7 行 + 战斗换算 7 格（生命 80 / 攻击 20 / 防御 16 / 闪避 12% / 暴击 8% / 灵视 9 / 鼓舞 36），战力 95
+- 切换后刷新页面仍是上次的形态（`localStorage.sakura_panel_mode`）
+- 面板高度按 1440×900 调到 760px，战斗态一屏放得下；更矮的窗口内部滚动

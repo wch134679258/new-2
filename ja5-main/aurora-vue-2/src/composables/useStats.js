@@ -213,6 +213,71 @@ export function startVitals () {
   }, 90000)
 }
 
+/* ============================================================
+   面板形态：日常 / 探索战斗
+   —— 小镇过日子不需要看闪避和暴击，所以日常只留四项；
+      要出门探索时切到战斗态，七项全开，外加一层战斗换算
+   ============================================================ */
+export const PANEL_MODES = [
+  { key: 'daily', label: '日常', en: 'DAILY' },
+  { key: 'battle', label: '探索战斗', en: 'ADVENTURE' }
+]
+
+/** 日常模式下露出的四项：过日子用得上的那几个 */
+export const DAILY_KEYS = ['vigor', 'strength', 'wits', 'charm']
+
+const MODE_KEY = 'sakura_panel_mode'
+
+export const panelMode = ref('daily')
+
+function loadMode () {
+  try {
+    const v = localStorage.getItem(MODE_KEY)
+    if (v === 'daily' || v === 'battle') panelMode.value = v
+  } catch (e) { /* 读不到就按日常 */ }
+}
+
+loadMode()
+
+export function setPanelMode (key) {
+  if (key !== 'daily' && key !== 'battle') return
+  panelMode.value = key
+  try { localStorage.setItem(MODE_KEY, key) } catch (e) { /* 静默 */ }
+}
+
+/** 当前形态下要显示的属性行 */
+export const visibleStats = computed(() =>
+  panelMode.value === 'battle' ? STATS : STATS.filter((s) => DAILY_KEYS.includes(s.key))
+)
+
+/** 被收起来的属性（日常模式下给一句提示用） */
+export const hiddenStats = computed(() =>
+  STATS.filter((s) => !visibleStats.value.some((v) => v.key === s.key))
+)
+
+/** 战力：七项加权，战斗态才显示 */
+export const power = computed(() => {
+  const s = stats
+  return Math.round(
+    s.vigor * 1.2 + s.strength * 1.5 + s.wits * 1.1 +
+    s.agility * 1.3 + s.mystic * 1.4 + s.charm * 1.0 + s.luck * 1.2
+  )
+})
+
+/** 战斗换算：每个数字都能追到某一项属性，不凭空编 */
+export const combat = computed(() => {
+  const s = stats
+  return [
+    { key: 'hp', label: '生命', en: 'HP', value: 40 + s.vigor * 4, unit: '', hint: '体力', color: '#e0576f' },
+    { key: 'atk', label: '攻击', en: 'ATK', value: Math.round(s.strength * 1.6 + s.vigor * 0.4), unit: '', hint: '力量', color: '#e8845f' },
+    { key: 'def', label: '防御', en: 'DEF', value: Math.round(s.vigor * 1.1 + s.strength * 0.5), unit: '', hint: '体力 + 力量', color: '#7f9fc9' },
+    { key: 'eva', label: '闪避', en: 'EVA', value: Math.round(s.agility * 1.2), unit: '%', hint: '敏捷', color: '#6fae9d' },
+    { key: 'crit', label: '暴击', en: 'CRIT', value: Math.round(4 + s.luck * 0.6), unit: '%', hint: '幸运', color: '#e8bf6a' },
+    { key: 'sight', label: '灵视', en: 'SIGHT', value: Math.round(s.mystic * 1.5), unit: '', hint: '神秘', color: '#9a86b6' },
+    { key: 'rally', label: '鼓舞', en: 'RALLY', value: Math.round(s.charm * 1.3), unit: '', hint: '魅力', color: '#e39ab0' }
+  ]
+})
+
 export function useStats () {
   return {
     stats,
@@ -229,6 +294,14 @@ export function useStats () {
     mood,
     moodMeta,
     nudgeMood,
-    startVitals
+    startVitals,
+    // 面板形态
+    PANEL_MODES,
+    panelMode,
+    setPanelMode,
+    visibleStats,
+    hiddenStats,
+    power,
+    combat
   }
 }

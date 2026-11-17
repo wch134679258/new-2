@@ -420,7 +420,7 @@
         <div class="town__stats">
           <p class="town__stats-title">称号 · <b>{{ title }}</b></p>
           <ul class="town__stats-list">
-            <li v-for="s in STATS" :key="s.key" :title="`${s.label} ${stats[s.key]}（Lv.${levelOf(s.key)}）`">
+            <li v-for="s in visibleStats" :key="s.key" :title="`${s.label} ${stats[s.key]}（Lv.${levelOf(s.key)}）`">
               <span class="town__stats-dot" :style="{ background: s.color }"></span>
               <em>{{ s.label }}</em>
               <b>{{ stats[s.key] }}</b>
@@ -437,7 +437,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { stats, STATS, levelOf, title, mood, moodMeta } from '../composables/useStats'
+import { stats, visibleStats, levelOf, title, mood, moodMeta } from '../composables/useStats'
 import { motionEnabled } from '../composables/useMotion'
 import { useEconomy } from '../composables/useEconomy'
 import SiteNav from './SiteNav.vue'
