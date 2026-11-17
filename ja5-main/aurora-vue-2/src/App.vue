@@ -79,6 +79,22 @@
     @logout="doLogout"
   />
 
+  <!-- 樱花学校：黑板课程表 + 图书角 -->
+  <SchoolPage
+    v-else-if="view === 'school'"
+    :user="user"
+    @navigate="onNavigate"
+    @logout="doLogout"
+  />
+
+  <!-- 樱花车站：发车牌 + 时刻表 + 取车票 -->
+  <StationPage
+    v-else-if="view === 'station'"
+    :user="user"
+    @navigate="onNavigate"
+    @logout="doLogout"
+  />
+
   <!-- 书店：原「手记馆」的文章列表，改成可以买书的书架 -->
   <BookstorePage
     v-else-if="view === 'home'"
@@ -228,6 +244,8 @@ import SpaceSnake from './components/SpaceSnake.vue'
 import TetrisPage from './components/TetrisPage.vue'
 import FishGamePage from './components/FishGamePage.vue'
 import SakuraTown from './components/SakuraTown.vue'
+import SchoolPage from './components/SchoolPage.vue'
+import StationPage from './components/StationPage.vue'
 import TownEntry from './components/TownEntry.vue'
 import { useTilt } from './composables/useTilt'
 import { toast } from './composables/useToast'
@@ -244,7 +262,9 @@ const doneSub = ref('')
  * 视图状态机（无 vue-router）：
  *   auth 登录 / admin-login 后台登录 / admin 管理台
  *   entry     序章页（登录后先看到的一屏：千年樱 + 进入小镇）
- *   town      樱花小镇（默认首页，四栋建筑可点）
+ *   town      樱花小镇（默认首页，六栋建筑可点）
+ *   school    樱花学校（黑板课程表 / 图书角）
+ *   station   樱花车站（发车牌 / 时刻表 / 车票）
  *   home      书店（原手记馆，书可买可读）
  *   gamehome  家（笔记本里玩小游戏 / 床睡觉）
  *   store     便利店（打工赚金币）
