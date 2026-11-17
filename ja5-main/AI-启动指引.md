@@ -630,13 +630,13 @@ auth 登录 ──成功──> entry 序章页 ──「进入小镇」──> 
             （带着 token 自动恢复登录也先到 entry）
 ```
 
-- 视觉：一整屏电影感主视觉（低机位仰视的千年古樱，枝桠横跨成拱形压住上半部，
-  石台边一个渺小的旅人背影，湖面倒影 + 层叠雪山），叠缓慢推镜、穿花光束、花瓣吹雪
-- 文案：左上品牌 / 右上当前用户 + 退出登录 / 左下序章标题 + 说明 + 两个按钮 / 右下「时节·所在·今日」铭牌
+- 视觉：一屏日系动画插画（新海诚式逆光 + 粉彩）—— 后山崖顶的千年樱，一个人倚着树根坐着休息，
+  山下一角是小镇（坡屋顶小屋、喷泉广场、樱花行道树、湖与远山），缓慢推镜 + 花瓣吹雪
+- 版式：**墨色字 + 白瓷玻璃片**（品牌 / 用户名 / 退出登录 / 左下铭牌都是玻璃片），
+  文案落在右上方天空留白处，画面下半部（山下小镇 + 树下的人）整块不压任何东西
 - 交互：`进入小镇` 按钮、`Enter` 键都能进门；点下去先叠一层暖光（ease-in 0.82s），
-  780ms 后 emit `enter` 由 `App.vue` 切 `view = 'town'`，切换藏在闪白最后一帧里
-- 另一个按钮 `先了解一下这里` → `view = 'about'`（复用关于页）
-- **只做桌面端**（用户明确要求）：没有单独适配手机竖屏，窄窗口只是自动收窄 padding / 字号
+  780ms 后 emit `enter` 由 `App.vue` 切 `view = 'town'`
+- **只做桌面端**（用户明确要求）：没有单独适配手机竖屏，窄窗口只是收窄 padding / 字号
 
 ### 16.2 文件
 
@@ -644,38 +644,38 @@ auth 登录 ──成功──> entry 序章页 ──「进入小镇」──> 
 |---|---|
 | `src/components/TownEntry.vue` | 新增，整屏序章页（自带花瓣 canvas，复用 `createPetalField`） |
 | `src/App.vue` | 新增 `entry` 视图 + `goEntry()`；`onSuccess`/`onMounted` 改为先进 entry；`bareStage` 让 entry 与 town 都不叠全局天空/花瓣；`showFooter` 排除 entry |
-| `public/town/entry-tree.jpg` | 主视觉 1536×914（≈470KB，已裁掉生成工具右下角水印） |
+| `public/town/entry-tree.jpg` | 主视觉 1536×912（≈420KB，已裁掉生成工具右下角水印） |
 | `index.html` | 加 `<link rel="preload" as="image" href="/town/entry-tree.jpg">` |
-| `ja5-main/art-source/` | 原始 PNG 未压缩版（`entry-tree.png` 第一版、`entry-tree-v2.png` 现用版）；已 gitignore，不入库也不进 public |
+| `ja5-main/art-source/` | 原始 PNG 未压缩版（v1/v2/v3 三版）；已 gitignore，不入库也不进 public |
 
 ### 16.3 踩坑（改这一屏必看）
 
 1. **类名千万别叫 `.brand`**：`style.css` 里登录页的 `.brand` 有底色、`::before/::after` 光斑，
    序章页的 brand 会被整块涂成粉色方块。现已改名 `.entry__brand` / `.eb-mark` / `.eb-cn` / `.eb-en`。
-   （同类历史坑：首页 `.tabs` / `.tab`，见 14.3）
 2. **`body` 在登录态是 `display:grid; place-items:center`**：序章页只有绝对定位子元素，
-   `width:100%` 在 grid 里会算成 0（第一版截图整屏空白就是这个）。已加 `min-width:100vw` 兜底；
-   正常链路里 `view-home` 会把 body 切成 block，两重保险。
-3. **渐变文字（background-clip:text）不要继承 text-shadow**：父级 h1 上的深色阴影会从透明字形
-   里透出来，把整行染成灰的（第二版标题「小镇刚醒来。」发灰就是这个原因）。
-   `.entry__title em` 必须显式 `text-shadow: none`，投影改用 `filter: drop-shadow()`。
-4. **闪白要用 ease-in**：`var(--ease)`（先快后慢）会在 300ms 就白到看不见任何东西；
-   换成 `cubic-bezier(.55,0,.85,.35)` 后前半段几乎看不出、最后 200ms 才亮满。
-5. **推镜是 `animation`**：出门时要先 `animation: none` 再给 `transform`，否则 `transition` 不生效。
-6. **画面亮部要单独压**：主视觉底部中间是湖面 / 山体亮面，白字会发灰。
-   `.entry__grade` 除了上下两条线性渐变，还叠了一个左下角的 radial（`at 14% 66%`）专门给文案垫底。
+   `width:100%` 在 grid 里会算成 0（第一版整屏空白就是这个）。已加 `min-width:100vw` 兜底。
+3. **渐变文字（background-clip:text）不要继承 text-shadow**：父级 h1 的深色阴影会从透明字形里
+   透出来，把整行染成灰的。`.entry__title em` 必须显式 `text-shadow: none`，投影用 `drop-shadow()`。
+4. **亮图不能用「白字 + 暗角」那套**：现在的图是明亮粉彩，白字压不住、加暗角又把画毁掉。
+   正确做法是墨色字（`#35263a`）+ 淡白光晕，控件统一白瓷玻璃片，只做加法调色（补暖光、樱花色柔边）。
+5. **文案要避开太阳**：图里右上方有很强的逆光，字压在光斑上会发虚。文案定位在 `left:45% / top:34%`，
+   正好落在云与湖面之间的中调区域；再叠一层 `radial-gradient` 白纱（0.6）给它垫底。
+6. **闪白要用 ease-in**：`cubic-bezier(.55,0,.85,.35)`，前半段几乎看不出、最后 200ms 才亮满。
+7. **推镜是 `animation`**：出门时要先 `animation: none` 再给 `transform`，否则 `transition` 不生效。
 
-### 16.4 主视觉来龙去脉
+### 16.4 主视觉三代
 
-- 第一版：正面全景千年樱（树干居中、花冠铺满上方），风格更"海报"
-- 第二版（现用）：按参考图改成**低机位仰视**——树干贴左边、枝桠从左上横跨到右上形成拱形，
-  拱洞里露出雪山与湖面，石台边站一个披斗篷的小小旅人。构图比第一版更有纵深和故事感
-- 两版都是 1536×1024 生成后裁掉底部 110px（去掉「AI 生成」水印）再转 JPG q89
+| 版本 | 内容 | 问题 |
+|---|---|---|
+| v1 | 正面全景千年樱（树干居中、花冠满铺） | 写实 3D 味太重，跟小镇的粉彩不搭 |
+| v2 | 低机位仰视、枝桠横跨成拱、石台旅人 | 电影感强但偏暗，白字+暗角方案与站内气质相反 |
+| **v3（现用）** | 日系动画风：后山崖顶千年樱 + 倚树休息的人 + 山下小镇一角 | 与 2.5D 小镇是同一套语言，过渡自然 |
+
+三版都是 1536×1024 生成 → 裁掉底部 110px（去「AI 生成」水印）→ JPG q89/q90。
 
 ### 16.5 验证记录
 
 - `vite build` 93 modules 通过
-- 真实 App 打桩 `/api/auth/me` 走了一遍：带 token 进站 → 落到 entry → 点按钮 → `town` 渲染、
-  `entry` 卸载、全局 `#petals` 不重复挂载；`document.scrollWidth == clientWidth` 无横向溢出
-- 1440×900 / 1600×900 两种桌面尺寸截图核对过排版与对比度（1920×1080 无头截图会卡在
-  `Page.captureScreenshot`，是 headless 合成器的问题，不是页面问题）
+- 真实 App 打桩 `/api/auth/me`：带 token 进站 → entry → 点按钮 → `town` 渲染、`entry` 卸载、
+  全局 `#petals` 不重复挂载；`document.scrollWidth == clientWidth`
+- 1440×900 / 1600×900 截图核对排版与对比度
