@@ -5,6 +5,7 @@
     tag="BOOKSTORE"
     title="樱花书店"
     desc="木书架从地板顶到天花板，每一本都被翻得卷了边。挑一本坐下，风会把樱瓣夹进书页里。"
+    scene="home_book"
     @navigate="$emit('navigate', $event)"
     @logout="$emit('logout')"
   >

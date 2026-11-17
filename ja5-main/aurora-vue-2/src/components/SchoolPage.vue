@@ -5,6 +5,7 @@
     tag="SAKURA SCHOOL"
     title="樱花学校"
     desc="后山脚下唯一的一所学校。木地板的走廊、朝南的教室，还有一间总是被樱花照亮的图书角。"
+    scene="school"
     @navigate="$emit('navigate', $event)"
     @logout="$emit('logout')"
   >

@@ -5,6 +5,7 @@
     tag="PARK"
     title="花见公园"
     desc="小镇中央的一片草地，两棵樱花树围着一张旧长椅。走累了就在这儿坐一会儿，风会替你数花瓣。"
+    scene="gazebo"
     @navigate="$emit('navigate', $event)"
     @logout="$emit('logout')"
   >

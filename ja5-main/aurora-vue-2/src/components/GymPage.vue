@@ -5,6 +5,7 @@
     tag="GYM"
     title="花见健身房"
     desc="旧仓库改的健身房，窗子正对着樱花树。老板说：把体力上限练上去，打工才能一口气扛到底。"
+    scene="gym"
     @navigate="$emit('navigate', $event)"
     @logout="$emit('logout')"
   >

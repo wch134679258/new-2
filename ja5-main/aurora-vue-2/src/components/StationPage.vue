@@ -5,6 +5,7 @@
     tag="SAKURA STATION"
     title="樱花车站"
     desc="一块木月台，两条铁轨，一天四班车。风大的时候，站名牌会晃；车来的时候，樱花会被风卷起来。"
+    scene="station"
     @navigate="$emit('navigate', $event)"
     @logout="$emit('logout')"
   >

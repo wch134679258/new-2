@@ -5,6 +5,7 @@
     tag="STORE 24H"
     title="灯花便利店"
     desc="凌晨两点也亮着的白灯，关东煮在咕嘟咕嘟。店长说：缺人手，你要不要试一班？"
+    scene="store"
     @navigate="$emit('navigate', $event)"
     @logout="$emit('logout')"
   >

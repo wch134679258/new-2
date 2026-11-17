@@ -49,6 +49,9 @@
         </div>
       </section>
 
+      <!-- 2.5D 室内剖视：走进这栋楼之后看到的样子 -->
+      <InteriorScene v-if="scene" :scene-key="scene" />
+
       <slot />
     </main>
 
@@ -94,6 +97,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import SiteNav from './SiteNav.vue'
+import InteriorScene from './InteriorScene.vue'
 import { useEconomy } from '../composables/useEconomy'
 import { fetchLogs } from '../api/economy'
 
@@ -102,7 +106,9 @@ defineProps({
   active: { type: String, default: 'town' },
   tag: { type: String, default: 'TOWN' },
   title: { type: String, default: '' },
-  desc: { type: String, default: '' }
+  desc: { type: String, default: '' },
+  /** 室内场景 key（iso/scenes.js），不传就不显示 2.5D 剖视图 */
+  scene: { type: String, default: '' }
 })
 defineEmits(['navigate', 'logout'])
 

@@ -5,6 +5,7 @@
     tag="HOME"
     title="樱见小屋"
     desc="一室一厅，窗正对着那棵大樱花树。书桌上摊着笔记本，床铺永远是刚晒过的味道。"
+    scene="home"
     @navigate="$emit('navigate', $event)"
     @logout="$emit('logout')"
   >
