@@ -1,7 +1,8 @@
 <template>
-  <SakuraBackground v-if="view !== 'town'" :night="night" />
+  <!-- 序章页与小镇自带画面，不叠站内的天空与花瓣 -->
+  <SakuraBackground v-if="!bareStage" :night="night" />
   <div class="grain"></div>
-  <PetalField v-if="view !== 'town'" :density="night ? 1 : 0.85" :opacity="night ? 1 : 0.88" />
+  <PetalField v-if="!bareStage" :density="night ? 1 : 0.85" :opacity="night ? 1 : 0.88" />
 
   <!-- 全局轻提示 -->
   <ToastHost />
@@ -58,6 +59,15 @@
     v-else-if="view === 'admin'"
     :user="user"
     @back="goTown()"
+    @logout="doLogout"
+  />
+
+  <!-- 序章页：登录之后、进小镇之前的一屏 -->
+  <TownEntry
+    v-else-if="view === 'entry'"
+    :user="user"
+    @enter="goTown()"
+    @navigate="onNavigate"
     @logout="doLogout"
   />
 
@@ -218,6 +228,7 @@ import SpaceSnake from './components/SpaceSnake.vue'
 import TetrisPage from './components/TetrisPage.vue'
 import FishGamePage from './components/FishGamePage.vue'
 import SakuraTown from './components/SakuraTown.vue'
+import TownEntry from './components/TownEntry.vue'
 import { useTilt } from './composables/useTilt'
 import { toast } from './composables/useToast'
 import { getMe, logout, getToken } from './api/auth'
@@ -232,6 +243,7 @@ const doneSub = ref('')
 /**
  * 视图状态机（无 vue-router）：
  *   auth 登录 / admin-login 后台登录 / admin 管理台
+ *   entry     序章页（登录后先看到的一屏：千年樱 + 进入小镇）
  *   town      樱花小镇（默认首页，四栋建筑可点）
  *   home      书店（原手记馆，书可买可读）
  *   gamehome  家（笔记本里玩小游戏 / 床睡觉）
@@ -249,7 +261,10 @@ const articleId = ref(null)
 /** 登录页与后台登录页用夜色，保证表单可读性 */
 const night = computed(() => view.value === 'auth' || view.value === 'admin-login')
 
-const showFooter = computed(() => !['auth', 'admin-login', 'admin', 'town', 'gamehome', 'game', 'tetris', 'fish'].includes(view.value))
+/** 这两屏用的是自己的完整画面（SVG 小镇 / 电影感底图），不要再叠全局天空与花瓣 */
+const bareStage = computed(() => view.value === 'town' || view.value === 'entry')
+
+const showFooter = computed(() => !['auth', 'admin-login', 'admin', 'entry', 'town', 'gamehome', 'game', 'tetris', 'fish'].includes(view.value))
 
 // 书店自己管理搜索 / 分类 / 分页，这里不再需要外部筛选参数
 
@@ -261,13 +276,13 @@ watch(view, (v) => {
 /* ---------- 登录流程 ---------- */
 async function onSuccess (mode) {
   doneTitle.value = mode === 'signup' ? '账号创建成功' : '欢迎回来'
-  doneSub.value = '樱花已为你铺好小路，正在打开首页…'
+  doneSub.value = '樱花已为你铺好小路，正在穿过花雨…'
   showDone.value = true
 
   if (mode === 'signup' || mode === 'login') {
     try {
       user.value = await getMe()
-      goTown()
+      goEntry()
       showDone.value = false
     } catch (e) {
       doneSub.value = (e && e.message) || '获取用户信息失败'
@@ -316,6 +331,11 @@ function goTown () {
   view.value = 'town'
 }
 
+/** 登录成功 / 带着 token 回到站点：先进序章页，再由用户自己推门 */
+function goEntry () {
+  view.value = 'entry'
+}
+
 function goHome () {
   view.value = 'home'
 }
@@ -333,7 +353,7 @@ onMounted(async () => {
   if (!getToken()) return
   try {
     user.value = await getMe()
-    view.value = 'town'
+    goEntry()
   } catch (e) {
     user.value = null
     view.value = 'auth'

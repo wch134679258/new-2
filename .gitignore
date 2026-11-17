@@ -45,6 +45,7 @@ Thumbs.db
 # ===================== 验证/归档产物（不入库，可随时删） =====================
 ja5-main/_verify/
 ja5-main/_archive/
+ja5-main/art-source/
 ja5-main/.e2e-shots/
 _shots/
 dist-build/

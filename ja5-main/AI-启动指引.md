@@ -616,3 +616,54 @@ ja5-main\
 - 前端默认勾选「记住我」，`App.vue` 在挂载时若发现 `localStorage.aurora_token`，会调用 `/auth/me`
   并直接进入首页。这是自动恢复登录，不是跳过认证；点导航栏「退出登录」或用无痕窗口即可看到登录/注册页。
 - 后台运行版只明确打印一个推荐地址 **`http://localhost:5173/`**，这是有意为之；本机使用不需要 Network 地址。
+
+---
+
+## 十六、2026-11-17 序章页（进入小镇之前的开始页面）
+
+### 16.1 这一屏是干什么的
+
+原来的链路是「登录成功 → 直接落到樱花小镇地图」。现在中间加了一屏 **序章页**：
+
+```
+auth 登录 ──成功──> entry 序章页 ──「进入小镇」──> town 樱花小镇
+            （带着 token 自动恢复登录也先到 entry）
+```
+
+- 视觉：一整屏电影感主视觉（千年古樱 + 湖面倒影 + 雪山），叠缓慢推镜、穿花光束、花瓣吹雪
+- 文案：左上品牌 / 右上当前用户 + 退出登录 / 左下序章标题 + 说明 + 两个按钮 / 右下「时节·所在·今日」铭牌
+- 交互：`进入小镇` 按钮、`Enter` 键都能进门；点下去先叠一层暖光（ease-in 0.82s），
+  780ms 后 emit `enter` 由 `App.vue` 切 `view = 'town'`，切换藏在闪白最后一帧里
+- 另一个按钮 `先了解一下这里` → `view = 'about'`（复用关于页）
+
+### 16.2 文件
+
+| 文件 | 说明 |
+|---|---|
+| `src/components/TownEntry.vue` | 新增，整屏序章页（自带花瓣 canvas，复用 `createPetalField`） |
+| `src/App.vue` | 新增 `entry` 视图 + `goEntry()`；`onSuccess`/`onMounted` 改为先进 entry；`bareStage` 让 entry 与 town 都不叠全局天空/花瓣；`showFooter` 排除 entry |
+| `public/town/entry-tree.jpg` | 主视觉横版 1536×914（≈450KB，已裁掉生成工具的水印） |
+| `public/town/entry-tree-portrait.jpg` | 竖版裁切 700×914（≤640px 用 `<picture>` 换图，≈210KB） |
+| `index.html` | 加 `<link rel="preload" as="image" href="/town/entry-tree.jpg">` |
+| `ja5-main/art-source/` | 原始 PNG 未压缩版（2.8MB），留着以后重新裁图用；已加入 .gitignore，不入库也不进 public |
+
+### 16.3 踩坑（改这一屏必看）
+
+1. **类名千万别叫 `.brand`**：`style.css` 里登录页的 `.brand` 有底色、`::before/::after` 光斑，
+   序章页的 brand 会被整块涂成粉色方块。现已改名 `.entry__brand` / `.eb-mark` / `.eb-cn` / `.eb-en`。
+   （同类历史坑：首页 `.tabs` / `.tab`，见 14.3）
+2. **`body` 在登录态是 `display:grid; place-items:center`**：序章页只有绝对定位子元素，
+   `width:100%` 在 grid 里会算成 0（第一版截图整屏空白就是这个）。已加 `min-width:100vw` 兜底；
+   正常链路里 `view-home` 会把 body 切成 block，两重保险。
+3. **竖屏不能用横图 cover**：390×844 下 1536×914 的图只能露出 27% 宽度，整屏全是树皮。
+   现用 `<picture>` + 单独裁的竖版（`object-position: 50% 40%`），树冠/树干/湖面都在画里。
+4. **闪白要用 ease-in**：`var(--ease)`（先快后慢）会在 300ms 就白到看不见任何东西；
+   换成 `cubic-bezier(.55,0,.85,.35)` 后前半段几乎看不出、最后 200ms 才亮满。
+5. **推镜是 `animation`**：出门时要先 `animation: none` 再给 `transform`，否则 `transition` 不生效。
+
+### 16.4 验证记录
+
+- `vite build` 93 modules 通过（改前 65）
+- 真实 App 打桩 `/api/auth/me` 走了一遍：带 token 进站 → 落到 entry → 点按钮 → `town` 渲染、
+  `entry` 卸载、全局 `#petals` 不再重复挂载；`document.scrollWidth == clientWidth` 无横向溢出
+- 1440×900 / 390×844（DPR 2，移动端视口覆盖）两种尺寸截图核对过排版与对比度
