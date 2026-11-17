@@ -112,6 +112,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { gain, gainMany, nudgeMood } from '../composables/useStats'
 import TownShell from './TownShell.vue'
 
 defineProps({
@@ -169,6 +170,9 @@ function isPast (s) {
 }
 
 function takeTicket () {
+  // 赶车的人：敏捷 +1，顺带一点运气
+  gainMany({ agility: 1, luck: 1 })
+  nudgeMood(4)
   const d = new Date()
   const pad = (n) => String(n).padStart(2, '0')
   ticket.value = {

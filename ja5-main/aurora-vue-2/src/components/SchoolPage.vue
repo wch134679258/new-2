@@ -93,6 +93,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { gain, gainMany, nudgeMood } from '../composables/useStats'
 import TownShell from './TownShell.vue'
 
 defineProps({
@@ -134,6 +135,9 @@ const today = computed(() => {
 function attend (key) {
   if (done.value.includes(key)) return
   done.value = [...done.value, key]
+  // 上课：智力为主，坐久了体力也涨一点
+  gainMany({ wits: 2, vigor: 1 })
+  nudgeMood(3)
   try { localStorage.setItem(KEY_DONE, JSON.stringify(done.value)) } catch (e) { /* 存不下就只留本次 */ }
 }
 
@@ -150,6 +154,7 @@ function read () {
       timer = null
       reading.value = false
       sits.value += 1
+      gain('wits', 1)
       try { localStorage.setItem(KEY_SITS, String(sits.value)) } catch (e) { /* 同上 */ }
     }
   }, 260)

@@ -83,6 +83,7 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
+import { gain, gainMany, nudgeMood } from '../composables/useStats'
 import TownShell from './TownShell.vue'
 
 const props = defineProps({
@@ -176,6 +177,14 @@ const KEY_VISIT = computed(() => `aurora_shop_${shop.value.key}_visits`)
 function pad (n) { return String(n).padStart(2, '0') }
 
 function order (it) {
+  // 花店是「看花」，咖啡甜品是「待客」——给的属性也不一样
+  if (shop.value.key === 'flower') {
+    gainMany({ mystic: 1, charm: 1 })
+    nudgeMood(6)
+  } else {
+    gain('charm', 2)
+    nudgeMood(shop.value.key === 'sweet' ? 10 : 8)
+  }
   const d = new Date()
   picked.value = it
   slipNo.value = `No.${String(Math.floor(Math.random() * 9000) + 1000)}`
@@ -187,6 +196,8 @@ function talk () {
   const others = list.filter((l) => l !== line.value)
   line.value = others[Math.floor(Math.random() * others.length)] || list[0]
   visits.value += 1
+  gain('charm', 1)
+  nudgeMood(3)
   try { localStorage.setItem(KEY_VISIT.value, String(visits.value)) } catch (e) { /* 存不下就算了 */ }
 }
 

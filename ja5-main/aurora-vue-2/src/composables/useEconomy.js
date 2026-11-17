@@ -17,6 +17,7 @@ import {
   benchRest, fetchDrinks, buyDrink
 } from '../api/economy'
 import { getToken } from '../api/http'
+import { gain, gainMany, nudgeMood, startVitals } from './useStats'
 
 /** 与后端字段一一对应；页面只读，写一律走下面的 action */
 export const wallet = reactive({
@@ -96,6 +97,7 @@ let ticker = null
  * 每秒推进一次：体力恢复倒计时归零就本地 +1，打工冷却归零就解锁按钮。
  */
 export function startTicker () {
+  startVitals()
   if (ticker) return
   ticker = setInterval(() => {
     if (wallet.nextRegenIn > 0) {
@@ -116,30 +118,43 @@ export function startTicker () {
 export async function work (score) {
   const res = await workShift(score)
   sync(res)
+  // 打一班：跑腿 + 体力
+  gainMany({ agility: 1, vigor: 1 })
+  // 上一天班总是有点累
+  nudgeMood(-6)
   return res
 }
 
 export async function train () {
   const res = await gymTrain()
   sync(res)
+  gainMany({ strength: 2, vigor: 1 })
+  nudgeMood(6)
   return res
 }
 
 export async function protein () {
   const res = await gymDrink()
   sync(res)
+  gain('vigor', 1)
+  nudgeMood(2)
   return res
 }
 
 export async function sleep () {
   const res = await sleepAtHome()
   sync(res)
+  // 睡一觉：体力长得最多
+  gain('vigor', 3)
+  nudgeMood(14)
   return res
 }
 
 export async function buy (articleId) {
   const res = await buyBook(articleId)
   sync(res)
+  gain('wits', 1)
+  nudgeMood(3)
   owned.add(Number(articleId))
   if (typeof res.ownedCount === 'number') wallet.ownedCount = res.ownedCount
   return res
@@ -149,6 +164,8 @@ export async function buy (articleId) {
 export async function bench () {
   const res = await benchRest()
   sync(res)
+  gainMany({ charm: 1, luck: 1 })
+  nudgeMood(8)
   return res
 }
 
@@ -161,12 +178,15 @@ export function drinks () {
 export async function drink (key) {
   const res = await buyDrink(key)
   sync(res)
+  nudgeMood(5)
   return res
 }
 
 export async function gameReward (game, score) {
   const res = await claimGameReward(game, score)
   sync(res)
+  gain('agility', 1)
+  nudgeMood(4)
   return res
 }
 
@@ -182,6 +202,8 @@ export const canWork = computed(() => wallet.energy >= wallet.workEnergyCost && 
 export function useEconomy () {
   return {
     wallet,
+    gain,
+    gainMany,
     owned,
     hasOwned,
     refresh,

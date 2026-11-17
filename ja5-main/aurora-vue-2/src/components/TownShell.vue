@@ -37,8 +37,35 @@
           </p>
         </div>
 
+        <div class="hud__mood">
+          <div class="hud__energy-top">
+            <span class="hud__energy-label">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 20.5S5 16.2 5 10.9A4.3 4.3 0 0 1 12 7.7a4.3 4.3 0 0 1 7 3.2c0 5.3-7 9.6-7 9.6z" />
+              </svg>
+              心情
+            </span>
+            <span class="hud__energy-num">{{ mood }}<i>/100</i></span>
+          </div>
+          <div class="hud__bar hud__bar--mood">
+            <i :style="{ width: mood + '%', background: moodMeta.color }"></i>
+          </div>
+          <p class="hud__hint">{{ moodMeta.label }} · 逛一逛会好起来</p>
+        </div>
+
         <div class="hud__extra">
           <slot name="hud" />
+          <button
+            class="hud__book hud__book--stats"
+            type="button"
+            title="查看角色属性"
+            @click="statsOpen = true"
+          >
+            <span class="hud__stat-dots" aria-hidden="true">
+              <i v-for="s in STATS" :key="s.key" :style="{ background: s.color }"></i>
+            </span>
+            属性
+          </button>
           <button
             v-if="wallet.ready"
             class="hud__book"
@@ -91,6 +118,58 @@
         </div>
       </Transition>
     </Teleport>
+
+    <!-- 属性面板：七项属性 + 称号 -->
+    <Teleport to="body">
+      <Transition name="ledger">
+        <div
+          v-if="statsOpen"
+          class="stats"
+          role="dialog"
+          aria-modal="true"
+          aria-label="角色属性"
+          @click.self="statsOpen = false"
+        >
+          <div class="stats__panel">
+            <header class="stats__head">
+              <div>
+                <span class="stats__tag">STATUS</span>
+                <h3>角色属性</h3>
+              </div>
+              <button class="stats__close" type="button" aria-label="关闭" @click="statsOpen = false">✕</button>
+            </header>
+
+            <p class="stats__title">称号 · <b>{{ title }}</b><em>总成长 {{ total }}</em></p>
+
+            <ul class="stats__list">
+              <li v-for="s in STATS" :key="s.key" class="stats__row">
+                <span class="stats__dot" :style="{ background: s.color }"></span>
+                <span class="stats__name">{{ s.label }}<i>{{ s.en }}</i></span>
+                <span class="stats__bar">
+                  <i :style="{ width: Math.min(100, (stats[s.key] / MAX_VALUE) * 100) + '%', background: s.color }"></i>
+                </span>
+                <b class="stats__num">{{ stats[s.key] }}<em>Lv.{{ levelOf(s.key) }}</em></b>
+              </li>
+            </ul>
+
+            <p class="stats__note">
+              属性来自小镇里的日常：上课、训练、喝咖啡、许愿。
+              这里的「体力」是角色耐力，和钱包里会随时间恢复的体力值不是一回事。
+            </p>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- 属性成长提示：右下角小条 -->
+    <div class="stattoast" aria-live="polite">
+      <span
+        v-for="t in toasts"
+        :key="t.id"
+        class="stattoast__item"
+        :style="{ '--c': t.color }"
+      >{{ t.label }} {{ t.n > 0 ? '+' + t.n : t.n }}</span>
+    </div>
   </div>
 </template>
 
@@ -99,6 +178,7 @@ import { computed, onMounted, ref } from 'vue'
 import SiteNav from './SiteNav.vue'
 import InteriorScene from './InteriorScene.vue'
 import { useEconomy } from '../composables/useEconomy'
+import { stats, STATS, toasts, levelOf, title, total, MAX_VALUE, mood, moodMeta } from '../composables/useStats'
 import { fetchLogs } from '../api/economy'
 
 defineProps({
@@ -112,7 +192,8 @@ defineProps({
 })
 defineEmits(['navigate', 'logout'])
 
-const { wallet, refresh, startTicker } = useEconomy()
+// energyPercent 之前漏了解构：HUD 的体力条宽度一直是空的（控制台一直有 warning）
+const { wallet, refresh, startTicker, energyPercent } = useEconomy()
 
 /** 把秒数说人话：90 → 1分30秒 */
 const countdown = computed(() => {
@@ -122,6 +203,7 @@ const countdown = computed(() => {
   return `${Math.floor(s / 60)} 分 ${s % 60} 秒`
 })
 
+const statsOpen = ref(false)
 const ledgerOpen = ref(false)
 const ledgerLoading = ref(false)
 const logs = ref([])
@@ -230,6 +312,12 @@ onMounted(() => {
 .hud__bar i.low { background: linear-gradient(90deg, #ffc3b6, #f08e80); }
 .hud__hint { margin: 6px 0 0; font-size: 10.5px; color: var(--faint); letter-spacing: .02em; }
 
+/* 心情：跟体力并排的第二个实时状态 */
+.hud__mood { flex: 0 1 176px; min-width: 146px; }
+.hud__mood .hud__energy-label svg { fill: none; stroke: currentColor; stroke-width: 1.7; color: #cf7d95; }
+.hud__mood .hud__energy-label { color: var(--muted); }
+.hud__bar--mood { background: rgba(150, 110, 132, .14); }
+
 .hud__extra { display: flex; align-items: center; gap: 8px; margin-left: auto; flex: none; }
 .hud__book {
   height: 34px;
@@ -249,6 +337,126 @@ onMounted(() => {
   border-color: var(--sakura-300);
   background: var(--sakura-50);
   transform: translateY(-1px);
+}
+
+/* 属性按钮里那排小色点 */
+.hud__stat-dots { display: inline-flex; gap: 2px; margin-right: 6px; vertical-align: -1px; }
+.hud__stat-dots i { width: 4px; height: 4px; border-radius: 50%; display: block; }
+.hud__book--stats { display: inline-flex; align-items: center; }
+
+/* ---------- 属性面板 ---------- */
+.stats {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(48, 32, 46, .38);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.stats__panel {
+  width: min(460px, 100%);
+  max-height: min(86vh, 640px);
+  overflow: auto;
+  padding: 22px 24px 20px;
+  border-radius: 22px;
+  background: #fffdfc;
+  box-shadow: 0 30px 70px -30px rgba(88, 50, 84, .6), 0 0 0 1px rgba(255, 255, 255, .9);
+}
+.stats__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.stats__tag { font-size: 9px; letter-spacing: .28em; color: var(--sakura-600); }
+.stats__head h3 { margin: 4px 0 0; font-family: var(--font-serif); font-size: 19px; letter-spacing: .04em; color: var(--ink); }
+.stats__close {
+  width: 30px; height: 30px; flex: none;
+  border: 1px solid var(--line); border-radius: 50%;
+  background: #fff; color: var(--ink-soft); font-size: 13px; cursor: pointer;
+}
+.stats__close:hover { color: var(--sakura-700); border-color: var(--sakura-300); }
+
+.stats__title {
+  display: flex; align-items: baseline; gap: 8px;
+  margin: 14px 0 16px; font-size: 12px; color: var(--ink-soft);
+}
+.stats__title b { font-family: var(--font-serif); font-size: 15px; color: var(--sakura-700); letter-spacing: .04em; }
+.stats__title em { margin-left: auto; font-style: normal; font-size: 10.5px; color: var(--faint); letter-spacing: .08em; }
+
+.stats__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 11px; }
+.stats__row { display: grid; grid-template-columns: 8px 86px 1fr 44px; align-items: center; gap: 9px; }
+.stats__dot { width: 8px; height: 8px; border-radius: 50%; }
+.stats__name {
+  font-size: 12.5px;
+  color: var(--ink);
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  white-space: nowrap;   /* 「力量 STRENGTH」当年在这被挤成两行 */
+  overflow: hidden;
+}
+.stats__name i {
+  font-style: normal;
+  font-size: 7px;
+  letter-spacing: .1em;
+  color: var(--faint);
+  transform: translateY(-.5px);
+}
+.stats__bar {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: #f6eef2;
+  overflow: hidden;
+}
+/* 十格刻度：值只有 10 的时候也不像「空条」 */
+.stats__bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 1.5px), #fffdfc calc(10% - 1.5px) 10%);
+  pointer-events: none;
+}
+.stats__bar i { display: block; height: 100%; border-radius: 999px; transition: width .5s var(--ease); }
+.stats__num { font-size: 13px; font-weight: 700; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+.stats__num em { display: block; font-style: normal; font-size: 8px; font-weight: 500; letter-spacing: .1em; color: var(--faint); }
+.stats__note { margin: 18px 0 0; font-size: 10.5px; line-height: 1.8; color: var(--faint); }
+
+/* ---------- 属性成长提示 ---------- */
+.stattoast {
+  position: fixed;
+  right: 20px;
+  bottom: 24px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  pointer-events: none;
+}
+.stattoast__item {
+  padding: 6px 13px;
+  border-radius: 999px;
+  background: rgba(255, 253, 252, .96);
+  border: 1px solid color-mix(in srgb, var(--c) 40%, #fff);
+  box-shadow: 0 10px 24px -16px rgba(88, 50, 84, .8);
+  font-size: 11.5px;
+  letter-spacing: .06em;
+  color: var(--ink);
+  animation: statIn .34s var(--ease) both;
+}
+.stattoast__item::before {
+  content: '';
+  display: inline-block;
+  width: 6px; height: 6px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: var(--c);
+  vertical-align: 1px;
+}
+@keyframes statIn {
+  from { opacity: 0; transform: translateY(8px) scale(.94); }
+  to { opacity: 1; transform: none; }
 }
 
 /* ---------- 账本抽屉 ---------- */

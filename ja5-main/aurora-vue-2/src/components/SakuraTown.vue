@@ -388,6 +388,11 @@
           <b>{{ wallet.energy }}</b><i>/{{ wallet.energyMax }}</i>
           <em>体力</em>
         </span>
+        <span class="tw__sep"></span>
+        <span class="tw__mood">
+          <b :style="{ color: moodMeta.color }">{{ mood }}</b>
+          <em>心情 · {{ moodMeta.label }}</em>
+        </span>
       </div>
 
       <!-- 真实花瓣动画层 -->
@@ -410,6 +415,18 @@
           <button class="town__secondary" type="button" @click="go('park')">去公园坐坐</button>
         </div>
         <p class="town__click-hint"><span>✦</span>点建筑进屋，点樱花树撒一场花</p>
+
+        <!-- 属性速览：完整面板在各栋楼页面的 HUD 里 -->
+        <div class="town__stats">
+          <p class="town__stats-title">称号 · <b>{{ title }}</b></p>
+          <ul class="town__stats-list">
+            <li v-for="s in STATS" :key="s.key" :title="`${s.label} ${stats[s.key]}（Lv.${levelOf(s.key)}）`">
+              <span class="town__stats-dot" :style="{ background: s.color }"></span>
+              <em>{{ s.label }}</em>
+              <b>{{ stats[s.key] }}</b>
+            </li>
+          </ul>
+        </div>
       </section>
 
       <p class="town__foot">SAKURA NOTE · A LITTLE TOWN FOR SLOW DAYS</p>
@@ -420,6 +437,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { stats, STATS, levelOf, title, mood, moodMeta } from '../composables/useStats'
 import { motionEnabled } from '../composables/useMotion'
 import { useEconomy } from '../composables/useEconomy'
 import SiteNav from './SiteNav.vue'
@@ -799,6 +817,19 @@ const BUILDINGS = [
   }
 ]
 
+/* 屋顶小配件：每栋楼配不同的组合（烟囱 / 天窗 / 天线） */
+const ROOF_KIT = {
+  home:    { chimney: true,  skylight: true,  antenna: false },
+  store:   { chimney: false, skylight: true,  antenna: true },
+  gym:     { chimney: false, skylight: false, antenna: true },
+  gamehome:{ chimney: false, skylight: true,  antenna: false },
+  cafe:    { chimney: true,  skylight: true,  antenna: false },
+  sweet:   { chimney: true,  skylight: false, antenna: false },
+  flower:  { chimney: true,  skylight: true,  antenna: false },
+  school:  { chimney: false, skylight: false, antenna: true },
+  station: { chimney: false, skylight: false, antenna: true }
+}
+
 function buildVenue (v) {
   const x0 = v.x
   const y0 = v.y
@@ -818,21 +849,53 @@ function buildVenue (v) {
   deco.push({ d: faceQuad(leftFace, 0, 1, 0, 6), fill: 'rgba(150,110,132,.24)' })
   deco.push({ d: faceQuad(rightFace, 0, 1, 0, 6), fill: 'rgba(150,110,132,.15)' })
 
-  // 窗户：一排排小方窗，暖光代表屋里有人
-  for (const [z0, z1] of v.rows) {
-    for (const [u0, u1] of v.cols) {
-      deco.push({
-        d: faceQuad(winFn, u0, u1, z0, z1),
-        fill: v.glass ? 'rgba(206,238,232,.92)' : '#ffe4ac',
-        opacity: 0.95
-      })
-      deco.push({
-        d: faceQuad(winFn, u0, u1, z0, z1),
-        fill: 'none',
-        stroke: 'rgba(110,76,98,.42)',
-        sw: 1.2
-      })
+  /* 窗户：不能整面墙都是同一个方块。
+     四种样式轮换：竖中梃 / 窗台花箱 / 窗帘 / 十字窗格 */
+  let winSeed = 0
+  function addWindow (fn, u0, u1, z0, z1) {
+    const style = winSeed++ % 4
+    const w = u1 - u0
+    deco.push({
+      d: faceQuad(fn, u0, u1, z0, z1),
+      fill: v.glass ? 'rgba(206,238,232,.92)' : '#ffe4ac',
+      opacity: 0.95
+    })
+    deco.push({ d: faceQuad(fn, u0, u1, z0, z1), fill: 'none', stroke: 'rgba(110,76,98,.42)', sw: 1.2 })
+
+    if (style === 0) {
+      // 竖中梃
+      const [ax, ay] = fn(u0 + w / 2, z0)
+      const [bx, by] = fn(u0 + w / 2, z1)
+      deco.push({ d: `M${P([ax, ay])}L${P([bx, by])}`, fill: 'none', stroke: 'rgba(110,76,98,.3)', sw: 1 })
+    } else if (style === 1) {
+      // 窗台 + 一盆樱花：窗台伸出来一点，屋里就有了「住户」
+      deco.push({ d: faceQuad(fn, u0 - 0.018, u1 + 0.018, z0 - 3.4, z0 - 0.6), fill: '#dcc4cb' })
+      deco.push({ d: faceQuad(fn, u0 - 0.018, u1 + 0.018, z0 - 3.4, z0 - 2.9), fill: '#c9aab4' })
+      const [px, py] = fn(u0 + w * 0.28, z0 - 1.2)
+      deco.push({ d: poly([[px - 3.4, py], [px + 3.4, py], [px + 2.6, py - 4.2], [px - 2.6, py - 4.2]]), fill: '#c08f78' })
+      deco.push({ d: ellipsePath(px - 1.6, py - 6.4, 2.8, 2.6), fill: '#f6a8bd' })
+      deco.push({ d: ellipsePath(px + 2.2, py - 7.2, 2.4, 2.2), fill: '#ffd2dd' })
+      deco.push({ d: ellipsePath(px, py - 9, 1.8, 1.8), fill: '#fff1f4' })
+    } else if (style === 2) {
+      // 窗帘：两侧各一片，杆子横在窗顶
+      deco.push({ d: faceQuad(fn, u0 + 0.008, u0 + w * 0.2, z0 + 0.5, z1), fill: 'rgba(255, 240, 238, .78)' })
+      deco.push({ d: faceQuad(fn, u1 - w * 0.2, u1 - 0.008, z0 + 0.5, z1), fill: 'rgba(255, 240, 238, .78)' })
+      const [rx0, ry0] = fn(u0 - 0.01, z1 + 2)
+      const [rx1, ry1] = fn(u1 + 0.01, z1 + 2)
+      deco.push({ d: `M${P([rx0, ry0])}L${P([rx1, ry1])}`, fill: 'none', stroke: '#b9949f', sw: 1.4 })
+    } else {
+      // 十字窗格
+      const [ax, ay] = fn(u0 + w / 2, z0)
+      const [bx, by] = fn(u0 + w / 2, z1)
+      const zm = (z0 + z1) / 2
+      const [cx, cy] = fn(u0, zm)
+      const [dx, dy] = fn(u1, zm)
+      deco.push({ d: `M${P([ax, ay])}L${P([bx, by])}M${P([cx, cy])}L${P([dx, dy])}`, fill: 'none', stroke: 'rgba(110,76,98,.3)', sw: 0.9 })
     }
+  }
+
+  for (const [z0, z1] of v.rows) {
+    for (const [u0, u1] of v.cols) addWindow(winFn, u0, u1, z0, z1)
   }
 
   // ---------- 门 ----------
@@ -843,14 +906,35 @@ function buildVenue (v) {
   deco.push({ d: faceQuad(doorFn, du0, du1, 0, 30), fill: 'none', stroke: 'rgba(90,60,80,.3)', sw: 1.2 })
   // 门口踏步：多一级石阶，门就有了「进深」
   deco.push({ d: faceQuad(doorFn, du0 - 0.03, du1 + 0.03, 0, 4), fill: '#d8c6cf' })
+  // 门框：两道竖边 + 一道门头，门就不像贴纸了
+  deco.push({
+    d: faceQuad(doorFn, du0 - 0.012, du0 + 0.004, 0, 31),
+    fill: 'rgba(120, 84, 104, .5)'
+  })
+  deco.push({
+    d: faceQuad(doorFn, du1 - 0.004, du1 + 0.012, 0, 31),
+    fill: 'rgba(120, 84, 104, .5)'
+  })
+  deco.push({ d: faceQuad(doorFn, du0 - 0.012, du1 + 0.012, 30, 32.4), fill: 'rgba(120, 84, 104, .55)' })
+  // 门把手
+  {
+    const [hx, hy] = doorFn(du1 - 0.05, 15)
+    deco.push({ d: ellipsePath(hx, hy, 2, 2), fill: '#f2d9a8' })
+  }
+  // 小扶手：门的一侧立一根柱子，矮楼的门口就不空
+  if (h >= 44) {
+    const [rx, ry] = doorFn(du1 + 0.05, 0)
+    const rh = 26
+    deco.push({ d: `M${P([rx, ry])}V${round1(ry - rh)}`, fill: 'none', stroke: '#8a6a74', sw: 2 })
+    deco.push({ d: `M${P([rx, ry - rh])}h-11`, fill: 'none', stroke: '#8a6a74', sw: 2 })
+  }
 
-  // 门脸一侧的窗：不能整面白墙，靠上的几排照样开窗
+  // 门脸一侧的窗：靠上的几排照样开窗，样式跟着全局计数轮换
   for (const [z0, z1] of v.rows) {
     if (z1 > h - 24) continue
     for (const [u0, u1] of v.cols) {
       if (u1 > du0 - 0.02 && u0 < du1 + 0.02) continue
-      deco.push({ d: faceQuad(doorFn, u0, u1, z0, z1), fill: v.glass ? 'rgba(206,238,232,.92)' : '#ffe4ac', opacity: 0.95 })
-      deco.push({ d: faceQuad(doorFn, u0, u1, z0, z1), fill: 'none', stroke: 'rgba(110,76,98,.42)', sw: 1.2 })
+      addWindow(doorFn, u0, u1, z0, z1)
     }
   }
 
@@ -905,11 +989,11 @@ function buildVenue (v) {
     for (const sz of shelves) {
       deco.push({ d: faceQuad(doorFn, wu0 + 0.02, wu1 - 0.02, sz, sz + 2), fill: '#b98a7f' })
       // 书脊：一条条彩色小方片，远看就是「一柜子书」
-      const n = 9
+      const n = 8
       for (let i = 0; i < n; i++) {
         const a = wu0 + 0.03 + ((wu1 - wu0 - 0.06) / n) * i
         const b = a + (wu1 - wu0 - 0.06) / n - 0.012
-        const cb = ['#d4708c', '#e0a05c', '#7f9fc9', '#8fb98b', '#b189c4'][(i + shelves.indexOf(sz)) % 5]
+        const cb = ['#d98aa0', '#dcb488', '#9fb3cc', '#a9c0a2', '#bda3c9'][(i + shelves.indexOf(sz)) % 5]
         deco.push({ d: faceQuad(doorFn, a, b, sz + 2.2, sz + 10), fill: cb, opacity: 0.92 })
       }
     }
@@ -981,15 +1065,16 @@ function buildVenue (v) {
     deco.push({ d: faceQuad(doorFn, gu0, gu1, 4, 46), fill: 'none', stroke: '#8e93b4', sw: 1.8 })
     // 屋顶招牌 + 哑铃
     const [gx0, gy0] = ip(x0 + 0.5, y1 - 0.34, h + 4)
-    // 招牌板 + 两根支腿
-    extraRoof.push({ d: poly([[gx0 - 44, gy0], [gx0 + 48, gy0], [gx0 + 48, gy0 - 30], [gx0 - 44, gy0 - 30]]), fill: '#fffdf9', stroke: 'rgba(140,90,110,.32)', sw: 1.2 })
-    extraRoof.push({ d: `M${P([gx0 - 34, gy0])}v-30M${P([gx0 + 38, gy0])}v-30`, fill: 'none', stroke: '#8b7a9e', sw: 1.6 })
-    // 哑铃：两片配重 + 横杆
-    extraRoof.push({ d: poly([[gx0 - 30, gy0 - 23], [gx0 - 18, gy0 - 23], [gx0 - 18, gy0 - 7], [gx0 - 30, gy0 - 7]]), fill: '#7b6a9e' })
-    extraRoof.push({ d: poly([[gx0 + 14, gy0 - 23], [gx0 + 26, gy0 - 23], [gx0 + 26, gy0 - 7], [gx0 + 14, gy0 - 7]]), fill: '#7b6a9e' })
-    extraRoof.push({ d: poly([[gx0 - 18, gy0 - 18.5], [gx0 + 14, gy0 - 18.5], [gx0 + 14, gy0 - 11.5], [gx0 - 18, gy0 - 11.5]]), fill: '#7b6a9e' })
-    extraRoof.push({ d: poly([[gx0 - 30, gy0 - 23], [gx0 - 18, gy0 - 23], [gx0 - 18, gy0 - 20], [gx0 - 30, gy0 - 20]]), fill: '#a294bd' })
-    extraRoof.push({ d: poly([[gx0 + 14, gy0 - 23], [gx0 + 26, gy0 - 23], [gx0 + 26, gy0 - 20], [gx0 + 14, gy0 - 20]]), fill: '#a294bd' })
+    // 招牌板 + 两根支腿（深紫板，和墙上的小挂板同一套色）
+    extraRoof.push({ d: poly([[gx0 - 40, gy0], [gx0 + 44, gy0], [gx0 + 44, gy0 - 28], [gx0 - 40, gy0 - 28]]), fill: '#5b4a68' })
+    extraRoof.push({ d: poly([[gx0 - 40, gy0], [gx0 + 44, gy0], [gx0 + 44, gy0 - 2.6], [gx0 - 40, gy0 - 2.6]]), fill: '#b6a0c0' })
+    extraRoof.push({ d: `M${P([gx0 - 32, gy0])}v-28M${P([gx0 + 36, gy0])}v-28`, fill: 'none', stroke: '#7a6788', sw: 1.6 })
+    // 哑铃：两片配重 + 横杆（奶白，紫底上才看得清）
+    extraRoof.push({ d: poly([[gx0 - 28, gy0 - 22], [gx0 - 17, gy0 - 22], [gx0 - 17, gy0 - 6], [gx0 - 28, gy0 - 6]]), fill: '#fff3e2' })
+    extraRoof.push({ d: poly([[gx0 + 12, gy0 - 22], [gx0 + 23, gy0 - 22], [gx0 + 23, gy0 - 6], [gx0 + 12, gy0 - 6]]), fill: '#fff3e2' })
+    extraRoof.push({ d: poly([[gx0 - 17, gy0 - 17.5], [gx0 + 12, gy0 - 17.5], [gx0 + 12, gy0 - 10.5], [gx0 - 17, gy0 - 10.5]]), fill: '#fff3e2' })
+    extraRoof.push({ d: poly([[gx0 - 28, gy0 - 22], [gx0 - 17, gy0 - 22], [gx0 - 17, gy0 - 19], [gx0 - 28, gy0 - 19]]), fill: '#d9c9e2' })
+    extraRoof.push({ d: poly([[gx0 + 12, gy0 - 22], [gx0 + 23, gy0 - 22], [gx0 + 23, gy0 - 19], [gx0 + 12, gy0 - 19]]), fill: '#d9c9e2' })
 
   }
 
@@ -1148,6 +1233,88 @@ function buildVenue (v) {
     })
   }
 
+  /* =========================================================
+     屋顶细节（所有建筑通用）
+     深紫屋顶 + 浅紫描边 + 木檐口 + 天窗 / 烟囱 / 天线 + 落花
+     ========================================================= */
+  {
+    const kit = ROOF_KIT[v.key] || {}
+    const rt = v.pitched ? h + 26 : h + 6
+    const midY = (y0 + y1) / 2
+    const trimZ0 = v.pitched ? h - 3.6 : h - 2
+    const trimZ1 = v.pitched ? h + 0.2 : h + 2
+
+    // 檐口木饰条：朝向镜头的两条边各压一道深木色，屋顶立刻有了厚度
+    roofParts.push({
+      d: poly([ip(x0 - e, y1 + e, trimZ0), ip(x1 + e, y1 + e, trimZ0), ip(x1 + e, y1 + e, trimZ1), ip(x0 - e, y1 + e, trimZ1)]),
+      fill: '#6f4a48'
+    })
+    roofParts.push({
+      d: poly([ip(x1 + e, y0 - e, trimZ0), ip(x1 + e, y1 + e, trimZ0), ip(x1 + e, y1 + e, trimZ1), ip(x1 + e, y0 - e, trimZ1)]),
+      fill: '#593a3a'
+    })
+    // 浅紫描边：木条上再压一道细线，深紫不发闷
+    roofParts.push({
+      d: poly([ip(x0 - e, y1 + e, trimZ1), ip(x1 + e, y1 + e, trimZ1), ip(x1 + e, y1 + e, trimZ1 + 1.4), ip(x0 - e, y1 + e, trimZ1 + 1.4)]),
+      fill: '#bb9fc0'
+    })
+
+    // 天窗
+    if (kit.skylight) {
+      if (v.pitched) {
+        // 斜面上的天窗：沿坡面参数 t 取一小块
+        const sl = (x, t) => ip(x, y1 + e + (midY - (y1 + e)) * t, h + 26 * t)
+        const sx0 = x0 + v.w * 0.16
+        const sx1 = sx0 + 0.62
+        const t0 = 0.34
+        const t1 = 0.62
+        roofParts.push({ d: poly([sl(sx0 - 0.05, t0 - 0.04), sl(sx1 + 0.05, t0 - 0.04), sl(sx1 + 0.05, t1 + 0.04), sl(sx0 - 0.05, t1 + 0.04)]), fill: '#6f4a48' })
+        roofParts.push({ d: poly([sl(sx0, t0), sl(sx1, t0), sl(sx1, t1), sl(sx0, t1)]), fill: '#cfe6ef' })
+        roofParts.push({ d: poly([sl(sx0 + 0.08, t0 + 0.05), sl(sx0 + 0.3, t0 + 0.05), sl(sx0 + 0.12, t1 - 0.05), sl(sx0 - 0.02, t1 - 0.05)]), fill: 'rgba(255,255,255,.55)' })
+      } else {
+        const sx0 = x0 + v.w * 0.16
+        const sy0 = y0 + v.d * 0.22
+        const sw = Math.min(0.66, v.w * 0.3)
+        const sd = Math.min(0.44, v.d * 0.26)
+        roofParts.push({ d: poly([ip(sx0 - 0.05, sy0 - 0.05, rt), ip(sx0 + sw + 0.05, sy0 - 0.05, rt), ip(sx0 + sw + 0.05, sy0 + sd + 0.05, rt), ip(sx0 - 0.05, sy0 + sd + 0.05, rt)]), fill: '#6f4a48' })
+        roofParts.push({ d: poly([ip(sx0, sy0, rt), ip(sx0 + sw, sy0, rt), ip(sx0 + sw, sy0 + sd, rt), ip(sx0, sy0 + sd, rt)]), fill: '#cfe6ef' })
+        roofParts.push({ d: poly([ip(sx0 + 0.06, sy0 + 0.05, rt), ip(sx0 + 0.26, sy0 + 0.05, rt), ip(sx0 + 0.1, sy0 + sd - 0.06, rt), ip(sx0 - 0.02, sy0 + sd - 0.06, rt)]), fill: 'rgba(255,255,255,.5)' })
+      }
+    }
+
+    // 小烟囱（人字顶那栋在屋顶段里已经画过，这里跳过）
+    if (kit.chimney && !v.pitched) {
+      const cxr = x0 + v.w * 0.72
+      const cyr = y0 + v.d * 0.3
+      roofParts.push(...boxParts(cxr, cyr, 0.34, 0.34, rt, rt + 26, { l: '#b08799', r: '#c79fb0', t: '#8a6a7e' }))
+      // 烟囱帽
+      roofParts.push({ d: poly([ip(cxr - 0.06, cyr - 0.06, rt + 26), ip(cxr + 0.4, cyr - 0.06, rt + 26), ip(cxr + 0.4, cyr + 0.4, rt + 26), ip(cxr - 0.06, cyr + 0.4, rt + 26)]), fill: '#6f4a5e' })
+      // 一缕烟
+      roofParts.push({ d: ellipsePath(...ip(cxr + 0.16, cyr + 0.16, rt + 34), 4.6, 3.8), fill: 'rgba(255,255,255,.55)' })
+      roofParts.push({ d: ellipsePath(...ip(cxr + 0.3, cyr + 0.1, rt + 46), 6, 4.6), fill: 'rgba(255,255,255,.36)' })
+    }
+
+    // 小天线：一根杆 + 两道横挑
+    if (kit.antenna) {
+      const [ax, ay] = ip(x0 + v.w * 0.82, y0 + v.d * 0.2, rt)
+      roofParts.push({ d: `M${P([ax, ay])}V${round1(ay - 30)}`, fill: 'none', stroke: '#8d728a', sw: 1.8 })
+      roofParts.push({ d: `M${P([ax - 7, round1(ay - 26)])}h14M${P([ax - 4, round1(ay - 19)])}h8`, fill: 'none', stroke: '#8d728a', sw: 1.4 })
+    }
+
+    // 落花：屋顶上散几片樱花瓣
+    const petals = [[0.2, 0.32], [0.46, 0.16], [0.74, 0.46], [0.34, 0.68], [0.62, 0.8], [0.88, 0.24]]
+    petals.forEach(([u, w], i) => {
+      let px, py
+      if (v.pitched) {
+        const t = 0.18 + w * 0.55
+        ;[px, py] = ip(x0 + v.w * u, y1 + e + (midY - (y1 + e)) * t, h + 26 * t + 0.8)
+      } else {
+        ;[px, py] = ip(x0 + v.w * u, y0 + v.d * w, rt + 0.8)
+      }
+      roofParts.push({ d: ellipsePath(px, py, 3.4, 1.8), fill: i % 2 ? 'rgba(255,214,226,.82)' : 'rgba(255,238,244,.78)' })
+    })
+  }
+
   if (v.key === 'cafe') {
     // 咖啡馆：大玻璃窗 + 窗上的杯子 + 圆牌吊招牌 + 门口小圆桌
     const wu0 = 0.4
@@ -1267,10 +1434,532 @@ function buildVenue (v) {
     },
     wallL: v.wallL,
     wallR: v.wallR,
-    deco,
+    deco: deco.concat(yardProps(v)),
     roofParts,
     labelPos: ip((x0 + x1) / 2, (y0 + y1) / 2, h + (v.labelLift != null ? v.labelLift : (v.pitched ? 48 : 24)))
   }
+}
+
+/* =========================================================
+   门前小院：房子外面那一圈
+   —— 全部画在地面坐标系里，按 (x+y) 从小到大画（远的先、近的压上），
+      这样门口的花桶不会被远处的挡板盖住
+   ========================================================= */
+function yardProps (v) {
+  const x0 = v.x
+  const y0 = v.y
+  const x1 = v.x + v.w
+  const y1 = v.y + v.d
+  const groups = []
+  const add = (cx, cy, parts) => groups.push({ k: cx + cy, parts })
+
+  /** 地面上的一块方砖 */
+  const sq = (ax, ay, bx, by, fill, z = 0) => ({
+    d: poly([ip(ax, ay, z), ip(bx, ay, z), ip(bx, by, z), ip(ax, by, z)]),
+    fill
+  })
+  /** 落在地上的影子 */
+  const sh = (cx, cy, rx, ry, op = 0.15) => ({
+    d: ellipsePath(...ip(cx, cy, 1), rx, ry),
+    fill: `rgba(96, 70, 94, ${op})`
+  })
+  /** 小花盆 */
+  const pot = (cx, cy, sc = 1, tone = '#f4a0b8') => [
+    sh(cx, cy, 6.5 * sc, 3 * sc, 0.13),
+    ...boxParts(cx - 0.075 * sc, cy - 0.075 * sc, 0.15 * sc, 0.15 * sc, 0, 9 * sc, { l: '#bd8a72', r: '#d2a086', t: '#8f6a58' }),
+    { d: ellipsePath(...ip(cx, cy, 10 * sc), 5.6 * sc, 4.4 * sc), fill: tone },
+    { d: ellipsePath(...ip(cx - 0.05 * sc, cy - 0.02, 13 * sc), 3.4 * sc, 2.8 * sc), fill: '#ffe2ea' }
+  ]
+
+  // 门的位置（右开门的那栋，院子往 +x 长）
+  const du = v.doorU || [0.4, 0.62]
+  const rightDoor = v.doorFace === 'right'
+  const dcx = rightDoor ? x1 : x0 + v.w * (du[0] + du[1]) / 2
+  const dcy = rightDoor ? y0 + v.d * (du[0] + du[1]) / 2 : y1
+  /** 从门口往外 t 格、横向偏 side 格的地面点 */
+  const pt = (t, side = 0) => (rightDoor ? [x1 + t, dcy + side] : [dcx + side, y1 + t])
+
+  /* ---------- 1. 台阶（两级） ---------- */
+  if (!rightDoor) {
+    add(dcx, dcy + 0.2, [
+      ...boxParts(dcx - 0.26, y1 + 0.02, 0.52, 0.2, 0, 5, { l: '#d3c0cb', r: '#e4d2da', t: '#c6b0bb' }),
+      ...boxParts(dcx - 0.3, y1 + 0.22, 0.6, 0.2, 0, 2.6, { l: '#cab6c1', r: '#dcc9d2', t: '#bda8b3' })
+    ])
+  } else {
+    add(dcx + 0.2, dcy, [
+      ...boxParts(x1 + 0.02, dcy - 0.26, 0.2, 0.52, 0, 5, { l: '#d3c0cb', r: '#e4d2da', t: '#c6b0bb' }),
+      ...boxParts(x1 + 0.22, dcy - 0.3, 0.2, 0.6, 0, 2.6, { l: '#cab6c1', r: '#dcc9d2', t: '#bda8b3' })
+    ])
+  }
+
+  /* ---------- 2. 石板小径：门口一路铺出去 ---------- */
+  {
+    const parts = []
+    for (let i = 0; i < 4; i++) {
+      const t = 0.42 + i * 0.36
+      const side = i % 2 ? 0.1 : -0.07
+      const [px, py] = pt(t, side)
+      const w = 0.3 - i * 0.022
+      parts.push(sh(px, py, 11, 4, 0.08))
+      parts.push(sq(px - w / 2, py - 0.14, px + w / 2, py + 0.14, i % 2 ? '#e3d6c7' : '#d7c7b6'))
+      parts.push({
+        d: poly([ip(px - w / 2, py - 0.14, 0.6), ip(px + w / 2, py - 0.14, 0.6), ip(px + w / 2, py + 0.14, 0.6), ip(px - w / 2, py + 0.14, 0.6)]),
+        fill: 'none', stroke: 'rgba(150,124,118,.3)', sw: 0.8
+      })
+    }
+    const [ex, ey] = pt(0.9)
+    add(ex, ey, parts)
+  }
+
+  /* ---------- 3. 墙根：碎石带 + 青苔 ---------- */
+  {
+    const parts = []
+    for (let i = 0; i < 9; i++) {
+      const gx = x0 + 0.1 + (i * (v.w - 0.2)) / 8
+      const gy = y1 + 0.06 + (i % 3) * 0.045
+      parts.push({ d: ellipsePath(...ip(gx, gy, 1.4), 4 + (i % 3) * 1.2, 1.8), fill: i % 2 ? '#cfc2b8' : '#bcaea6' })
+    }
+    // 青苔：贴墙根的一串小绿团
+    for (let i = 0; i < 5; i++) {
+      const gx = x0 + 0.24 + (i * (v.w - 0.5)) / 4
+      parts.push({ d: ellipsePath(...ip(gx, y1 + 0.03, 1), 7 + (i % 2) * 3, 2.6), fill: 'rgba(150,178,128,.45)' })
+    }
+    add(x0 + v.w / 2, y1, parts)
+    // 右墙根也来一段
+    const parts2 = []
+    for (let i = 0; i < 6; i++) {
+      const gy = y0 + 0.2 + (i * (v.d - 0.4)) / 5
+      parts2.push({ d: ellipsePath(...ip(x1 + 0.05, gy, 1.4), 3.4, 2.2), fill: i % 2 ? '#c8bab0' : '#b6a89f' })
+    }
+    parts2.push({ d: ellipsePath(...ip(x1 + 0.03, y1 - 0.22, 1), 8, 3), fill: 'rgba(150,178,128,.4)' })
+    add(x1, y0 + v.d / 2, parts2)
+  }
+
+  /* ---------- 4. 零星小草 + 落花 ---------- */
+  {
+    const parts = []
+    const spots = [[0.12, 0.62], [0.4, 1.32], [0.72, 0.5], [0.88, 1.05], [0.28, 0.32], [0.62, 1.55]]
+    spots.forEach(([u, t]) => {
+      const gx = x0 + v.w * u
+      const gy = y1 + t
+      const [gx2, gy2] = ip(gx, gy, 0)
+      parts.push({ d: `M${P([gx2 - 2, gy2])}q-1 -5 -3 -7M${P([gx2, gy2])}q0 -6 1 -9M${P([gx2 + 2, gy2])}q2 -4 3 -7`, fill: 'none', stroke: '#9cb884', sw: 1.2, opacity: 0.9 })
+    })
+    add(x0 + v.w * 0.5, y1 + 0.9, parts)
+
+    const petalParts = []
+    const petals = [[0.16, 0.86], [0.36, 1.18], [0.55, 0.7], [0.74, 1.42], [0.9, 0.96], [0.46, 1.68]]
+    petals.forEach(([u, t], i) => {
+      const gx = x0 + v.w * u
+      const gy = y1 + t
+      petalParts.push({ d: ellipsePath(...ip(gx, gy, 0.8), 3.2, 1.7), fill: i % 2 ? 'rgba(255,205,220,.9)' : 'rgba(255,232,240,.85)' })
+    })
+    add(x0 + v.w * 0.5, y1 + 1.1, petalParts)
+  }
+
+  /* ---------- 5. 墙角灌木 ---------- */
+  add(x0 - 0.1, y1 + 0.06, [
+    sh(x0 - 0.08, y1 + 0.08, 12, 4.4, 0.12),
+    { d: ellipsePath(...ip(x0 - 0.2, y1 + 0.1, 8), 8, 6), fill: '#a3bb8c' },
+    { d: ellipsePath(...ip(x0 + 0.02, y1 + 0.14, 10), 7, 6), fill: '#b5c9a0' },
+    { d: ellipsePath(...ip(x0 - 0.06, y1 + 0.05, 14), 5, 4.4), fill: '#c4d6b0' }
+  ])
+
+  /* =========================================================
+     每栋楼自己的院子
+     ========================================================= */
+  if (v.key === 'gamehome') {
+    // 木栅栏（院子左侧一排尖头木条 + 两道横档）
+    {
+      const fx = x0 - 0.42
+      const yA = y1 + 0.12
+      const yB = y1 + 1.78
+      const parts = [sh(fx, (yA + yB) / 2, 9, 28, 0.1)]
+      for (let i = 0; i <= 6; i++) {
+        const yy = yA + ((yB - yA) * i) / 6
+        const [bx, by] = ip(fx, yy, 0)
+        parts.push({ d: poly([[bx, by], [bx + 4.4, by], [bx + 4.4, by - 20], [bx + 2.2, by - 25], [bx, by - 20]]), fill: i % 2 ? '#d8c0a8' : '#cdb59f' })
+      }
+      parts.push({ d: `M${P(ip(fx, yA, 7))}L${P(ip(fx, yB, 7))}M${P(ip(fx, yA, 16))}L${P(ip(fx, yB, 16))}`, fill: 'none', stroke: '#b99a84', sw: 2 })
+      add(fx, (yA + yB) / 2, parts)
+    }
+    // 小邮箱
+    {
+      const mx = dcx + 0.52
+      const my = y1 + 0.3
+      const [sx, sy] = ip(mx, my, 0)
+      add(mx, my, [
+        sh(mx, my, 5, 2.4, 0.14),
+        { d: `M${P([sx, sy])}V${round1(sy - 21)}`, fill: 'none', stroke: '#8a6a5a', sw: 2 },
+        ...boxParts(mx - 0.075, my - 0.06, 0.15, 0.12, 21, 31, { l: '#c46b6b', r: '#d98383', t: '#a95656' }),
+        { d: poly([[sx + 4, sy - 23], [sx + 10, sy - 25], [sx + 10, sy - 29], [sx + 4, sy - 27]]), fill: '#e8c26a' }
+      ])
+    }
+    // 门口小花坛
+    {
+      const bx = x0 + 0.2
+      const by = y1 + 0.5
+      const parts = [
+        ...boxParts(bx, by, 0.62, 0.3, 0, 8, { l: '#c9a48e', r: '#dcbba4', t: '#9a7660' }),
+        sq(bx + 0.04, by + 0.04, bx + 0.58, by + 0.26, '#7f9a6f', 8)
+      ]
+      for (let i = 0; i < 5; i++) {
+        const px = bx + 0.08 + i * 0.115
+        parts.push({ d: ellipsePath(...ip(px, by + 0.15, 12), 3.4, 2.8), fill: ['#f4a0b8', '#ffd9a0', '#e9b8f0', '#ffc2cf', '#fff2c8'][i] })
+      }
+      add(bx + 0.3, by, parts)
+    }
+    // 迷你樱花树苗
+    {
+      const tx = x0 + 0.3
+      const ty = y1 + 1.24
+      const [sx, sy] = ip(tx, ty, 0)
+      add(tx, ty, [
+        sh(tx, ty, 9, 4, 0.14),
+        { d: `M${P([sx - 3, sy])}L${P([sx - 1, round1(sy - 26)])}L${P([sx + 3, round1(sy - 26)])}L${P([sx + 2, sy])}Z`, fill: '#7a5a4e' },
+        { d: `M${P([sx - 1, sy - 20])}L${P([sx - 11, sy - 30])}M${P([sx, sy - 23])}L${P([sx + 9, sy - 32])}`, fill: 'none', stroke: '#7a5a4e', sw: 1.6 },
+        { d: ellipsePath(sx - 2, sy - 34, 11, 9), fill: '#f7bacd' },
+        { d: ellipsePath(sx + 7, sy - 30, 8, 6.6), fill: '#f9c8d8' },
+        { d: ellipsePath(sx - 8, sy - 38, 6.4, 5.4), fill: '#ffd7e3' }
+      ])
+    }
+    // 户外小桌椅
+    {
+      const tx = x0 + 1.22
+      const ty = y1 + 1.1
+      const [sx, sy] = ip(tx, ty, 0)
+      add(tx, ty, [
+        sh(tx, ty, 14, 6, 0.12),
+        { d: ellipsePath(sx, sy - 13, 12, 4.6), fill: '#e6cfb4' },
+        { d: ellipsePath(sx, sy - 15, 12, 4.6), fill: '#f8ecdc' },
+        { d: `M${P([sx, sy - 13])}V${round1(sy - 2)}`, fill: 'none', stroke: '#8a6a5a', sw: 2 },
+        { d: ellipsePath(sx - 18, sy + 2, 5.4, 2.6), fill: '#d8bda4' },
+        { d: ellipsePath(sx - 18, sy - 5, 5.4, 2.6), fill: '#e4cdb6' },
+        { d: ellipsePath(sx + 17, sy + 5, 5.4, 2.6), fill: '#d8bda4' },
+        { d: ellipsePath(sx + 17, sy - 2, 5.4, 2.6), fill: '#e4cdb6' }
+      ])
+    }
+    // 晾衣绳 + 三件小衣服
+    {
+      const ax = x0 + 0.6
+      const bx = x0 + 1.9
+      const yy = y1 + 1.66
+      const [p1x, p1y] = ip(ax, yy, 0)
+      const [p2x, p2y] = ip(bx, yy, 0)
+      const parts = [
+        { d: `M${P([p1x, p1y])}V${round1(p1y - 36)}M${P([p2x, p2y])}V${round1(p2y - 36)}`, fill: 'none', stroke: '#a98d83', sw: 2 },
+        { d: `M${P([p1x, p1y - 36])}Q${P([(p1x + p2x) / 2, (p1y + p2y) / 2 - 27])} ${P([p2x, p2y - 36])}`, fill: 'none', stroke: '#cbb2a6', sw: 1.2 }
+      ]
+      const cloths = ['#f6c9d5', '#d8e4f0', '#fff3d8']
+      for (let i = 0; i < 3; i++) {
+        const t = 0.24 + i * 0.26
+        const cx = p1x + (p2x - p1x) * t
+        const cy = p1y - 36 + (p2y - p1y) * t - 10 * Math.sin(Math.PI * t)
+        parts.push({ d: poly([[cx - 6, cy], [cx + 6, cy], [cx + 5.2, cy + 13], [cx - 5.2, cy + 13]]), fill: cloths[i] })
+      }
+      add((ax + bx) / 2, yy, parts)
+    }
+  }
+
+  if (v.key === 'home') {
+    // 立式招牌（A 字木牌 + 一摞小书）
+    {
+      const sx0 = dcx - 0.66
+      const sy0 = y1 + 0.5
+      const [ax, ay] = ip(sx0, sy0, 0)
+      add(sx0, sy0, [
+        sh(sx0, sy0, 10, 3.6, 0.14),
+        { d: poly([[ax - 9, ay], [ax + 9, ay], [ax + 7, ay - 26], [ax - 7, ay - 26]]), fill: '#fdf4ec' },
+        { d: poly([[ax - 9, ay], [ax + 9, ay], [ax + 9, ay + 2.4], [ax - 9, ay + 2.4]]), fill: '#c9a48e' },
+        { d: poly([[ax - 7, ay - 26], [ax + 7, ay - 26], [ax + 8, ay - 29], [ax - 8, ay - 29]]), fill: '#8f6a5e' },
+        { d: poly([[ax - 5, ay - 6], [ax + 5, ay - 6], [ax + 5, ay - 9], [ax - 5, ay - 9]]), fill: '#d4708c' },
+        { d: poly([[ax - 5, ay - 10], [ax + 4, ay - 10], [ax + 4, ay - 13], [ax - 5, ay - 13]]), fill: '#7f9fc9' },
+        { d: poly([[ax - 4, ay - 18], [ax + 5, ay - 18], [ax + 5, ay - 20], [ax - 4, ay - 20]]), fill: '#b98a7f' }
+      ])
+    }
+    // 落地展示柜（玻璃罩里放书）
+    {
+      const bx = dcx + 0.44
+      const by = y1 + 0.4
+      add(bx, by, [
+        ...boxParts(bx - 0.3, by - 0.17, 0.6, 0.34, 0, 12, { l: '#e8d3c4', r: '#f6e6d8', t: '#d8bfae' }),
+        ...boxParts(bx - 0.27, by - 0.14, 0.54, 0.28, 12, 23, { l: 'rgba(214,238,240,.86)', r: 'rgba(224,244,246,.8)', t: '#eaf6f8' }),
+        sq(bx - 0.2, by - 0.05, bx + 0.18, by + 0.04, '#d4708c', 13),
+        sq(bx - 0.16, by - 0.03, bx + 0.1, by + 0.06, '#e0a05c', 15),
+        sq(bx - 0.22, by + 0.06, bx + 0.16, by + 0.12, '#7f9fc9', 13)
+      ])
+    }
+    // 门口一摞一摞的书
+    {
+      const stacks = [[dcx - 0.28, y1 + 0.9], [dcx + 0.62, y1 + 1.0]]
+      stacks.forEach(([sx0, sy0], k) => {
+        const parts = [sh(sx0, sy0, 9, 3.4, 0.13)]
+        for (let i = 0; i < 4; i++) {
+          parts.push(...boxParts(sx0 - 0.14, sy0 - 0.1, 0.28 - i * 0.02, 0.2, i * 4, i * 4 + 3.6, {
+            l: ['#d4708c', '#e0a05c', '#7f9fc9', '#8fb98b'][(i + k) % 4],
+            r: ['#c4617d', '#cf8f4c', '#6f8fba', '#7fa97b'][(i + k) % 4],
+            t: '#fff6ee'
+          }))
+        }
+        add(sx0, sy0, parts)
+      })
+    }
+    // 门上的花环
+    {
+      const [wx, wy] = ip(dcx, y1, 0)
+      const parts = []
+      for (let i = 0; i < 9; i++) {
+        const a = ((Math.PI * 2) / 9) * i
+        parts.push({ d: ellipsePath(wx + Math.cos(a) * 7, wy - 24 + Math.sin(a) * 7, 2.6, 2.6), fill: i % 2 ? '#8fae83' : '#f2a0b6' })
+      }
+      parts.push({ d: ellipsePath(wx + 1, wy - 16, 2.2, 2.2), fill: '#d95c78' })
+      add(dcx, dcy, parts)
+    }
+  }
+
+  if (v.key === 'store') {
+    // 门口防滑垫
+    add(dcx, y1 + 0.36, [sq(dcx - 0.36, y1 + 0.24, dcx + 0.36, y1 + 0.48, '#8d9a92'), sq(dcx - 0.32, y1 + 0.27, dcx + 0.32, y1 + 0.45, '#9daaa1')])
+    // 户外冰柜
+    {
+      const bx = dcx + 0.62
+      const by = y1 + 0.42
+      add(bx, by, [
+        sh(bx, by, 12, 5, 0.14),
+        ...boxParts(bx - 0.3, by - 0.18, 0.6, 0.36, 0, 16, { l: '#e4eef0', r: '#f4fbfc', t: '#cfe0e4' }),
+        ...boxParts(bx - 0.27, by - 0.15, 0.54, 0.3, 16, 20, { l: 'rgba(198,232,238,.9)', r: 'rgba(210,240,244,.9)', t: '#eaf7f9' }),
+        sq(bx - 0.2, by - 0.05, bx - 0.1, by + 0.06, '#e0576f', 17),
+        sq(bx - 0.06, by - 0.05, bx + 0.04, by + 0.06, '#6fae9d', 17),
+        sq(bx + 0.07, by - 0.05, bx + 0.17, by + 0.06, '#f0c46a', 17)
+      ])
+    }
+    // 户外小推车
+    {
+      const cx2 = dcx - 0.6
+      const cy2 = y1 + 0.66
+      const [sx, sy] = ip(cx2, cy2, 0)
+      add(cx2, cy2, [
+        sh(cx2, cy2, 11, 4.4, 0.14),
+        { d: poly([[sx - 11, sy - 12], [sx + 11, sy - 12], [sx + 9, sy - 2], [sx - 9, sy - 2]]), fill: '#f4e2cf' },
+        { d: poly([[sx - 11, sy - 12], [sx + 11, sy - 12], [sx + 11, sy - 15], [sx - 11, sy - 15]]), fill: '#d9bfa6' },
+        { d: `M${P([sx - 11, sy - 14])}L${P([sx - 18, sy - 24])}`, fill: 'none', stroke: '#a98d83', sw: 1.6 },
+        { d: ellipsePath(sx - 6, sy, 3.4, 3.4), fill: '#6f5a5e' },
+        { d: ellipsePath(sx + 6, sy, 3.4, 3.4), fill: '#6f5a5e' },
+        { d: ellipsePath(sx - 4, sy - 18, 3.4, 2.6), fill: '#f2a0b6' },
+        { d: ellipsePath(sx + 4, sy - 19, 3, 2.4), fill: '#ffd9a0' }
+      ])
+    }
+    // 自动门感应器
+    {
+      const [sx, sy] = ip(dcx, y1, 0)
+      add(dcx, dcy, [
+        { d: poly([[sx - 12, sy - 33], [sx + 12, sy - 33], [sx + 12, sy - 39], [sx - 12, sy - 39]]), fill: '#8f9a94' },
+        { d: poly([[sx - 3, sy - 39], [sx + 3, sy - 39], [sx + 3, sy - 41], [sx - 3, sy - 41]]), fill: '#6f7a76' },
+        { d: `M${P([sx - 24, sy - 36])}h8`, fill: 'none', stroke: 'rgba(190, 240, 220, .8)', sw: 1.2 }
+      ])
+    }
+    // 两盆绿植
+    add(dcx - 0.5, y1 + 0.44, pot(dcx - 0.5, y1 + 0.44, 1, '#8fae83'))
+    add(dcx + 0.2, y1 + 1.1, pot(dcx + 0.2, y1 + 1.1, 0.9, '#a8c98f'))
+  }
+
+  if (v.key === 'gym') {
+    // 门口防滑垫
+    add(dcx, y1 + 0.34, [sq(dcx - 0.34, y1 + 0.22, dcx + 0.34, y1 + 0.46, '#6f6a78'), sq(dcx - 0.3, y1 + 0.25, dcx + 0.3, y1 + 0.43, '#7d7786')])
+    // 外墙哑铃标识：一块深紫小挂板，比一整面白墙板收敛得多
+    {
+      const [sx, sy] = ip(dcx + 0.42, y1, 0)
+      add(dcx + 0.42, dcy, [
+        { d: poly([[sx - 19, sy - 70], [sx + 19, sy - 70], [sx + 19, sy - 88], [sx - 19, sy - 88]]), fill: '#5b4a68' },
+        { d: poly([[sx - 19, sy - 70], [sx + 19, sy - 70], [sx + 19, sy - 72.4], [sx - 19, sy - 72.4]]), fill: '#b6a0c0' },
+        // 哑铃：两片配重 + 横杆
+        { d: poly([[sx - 13, sy - 76], [sx - 8, sy - 76], [sx - 8, sy - 83], [sx - 13, sy - 83]]), fill: '#fff3e2' },
+        { d: poly([[sx + 8, sy - 76], [sx + 13, sy - 76], [sx + 13, sy - 83], [sx + 8, sy - 83]]), fill: '#fff3e2' },
+        { d: poly([[sx - 8, sy - 78.4], [sx + 8, sy - 78.4], [sx + 8, sy - 80.6], [sx - 8, sy - 80.6]]), fill: '#fff3e2' }
+      ])
+    }
+    // 户外训练架（引体向上 + 吊环）
+    {
+      const bx = dcx + 0.66
+      const by = y1 + 1.05
+      const [ax, ay] = ip(bx - 0.36, by, 0)
+      const [cx2, cy2] = ip(bx + 0.36, by, 0)
+      add(bx, by, [
+        sh(bx, by, 18, 7, 0.12),
+        { d: `M${P([ax, ay])}V${round1(ay - 46)}M${P([cx2, cy2])}V${round1(cy2 - 46)}`, fill: 'none', stroke: '#7c6379', sw: 3.4 },
+        { d: `M${P([ax, ay - 44])}L${P([cx2, cy2 - 44])}`, fill: 'none', stroke: '#8f7a94', sw: 3 },
+        { d: `M${P([ax + 8, ay - 44])}v11M${P([cx2 - 8, cy2 - 44])}v11`, fill: 'none', stroke: '#a9929a', sw: 1.6 },
+        { d: ellipsePath(ax + 8, ay - 31, 3.6, 3.6), fill: 'none', stroke: '#a9929a', sw: 1.8 },
+        { d: ellipsePath(cx2 - 8, cy2 - 31, 3.6, 3.6), fill: 'none', stroke: '#a9929a', sw: 1.8 }
+      ])
+    }
+    add(dcx - 0.56, y1 + 0.5, pot(dcx - 0.56, y1 + 0.5, 1, '#9cb88d'))
+  }
+
+  if (v.key === 'school') {
+    // 校门拱门
+    {
+      const ay0 = y1 + 1.0
+      const pxs = [dcx - 0.52, dcx + 0.52]
+      const parts = []
+      pxs.forEach((px) => {
+        parts.push(sh(px, ay0, 8, 3.4, 0.14))
+        parts.push(...boxParts(px - 0.09, ay0 - 0.09, 0.18, 0.18, 0, 46, { l: '#d9c8bd', r: '#ecdbd0', t: '#f6e9df' }))
+        parts.push(...boxParts(px - 0.12, ay0 - 0.12, 0.24, 0.24, 46, 51, { l: '#c4b0a6', r: '#d8c4ba', t: '#e8d6cc' }))
+      })
+      const [l1, l2] = ip(dcx - 0.52, ay0, 49)
+      const [r1, r2] = ip(dcx + 0.52, ay0, 49)
+      const mx = (l1 + r1) / 2
+      const myy = Math.min(l2, r2)
+      parts.push({ d: `M${P([l1, l2 - 4])}Q${P([mx, myy - 22])} ${P([r1, r2 - 4])}`, fill: 'none', stroke: '#cbb4a8', sw: 5.4 })
+      parts.push({ d: `M${P([l1, l2 - 4])}Q${P([mx, myy - 22])} ${P([r1, r2 - 4])}`, fill: 'none', stroke: '#e8d6cb', sw: 2.6 })
+      parts.push({ d: poly([[mx - 17, myy - 6], [mx + 17, myy - 6], [mx + 17, myy - 17], [mx - 17, myy - 17]]), fill: '#8f6f8c' })
+      parts.push({ d: poly([[mx - 12, myy - 10], [mx + 12, myy - 10], [mx + 12, myy - 12], [mx - 12, myy - 12]]), fill: '#e3cfe0' })
+      add(dcx, ay0, parts)
+    }
+    // 石质校碑
+    {
+      const bx = dcx + 0.92
+      const by = y1 + 0.52
+      add(bx, by, [
+        sh(bx, by, 12, 5, 0.14),
+        ...boxParts(bx - 0.3, by - 0.17, 0.6, 0.34, 0, 9, { l: '#cfc6bd', r: '#ded5cc', t: '#eee6de' }),
+        ...boxParts(bx - 0.22, by - 0.11, 0.44, 0.22, 9, 36, { l: '#d8cfc6', r: '#e9e0d7', t: '#f4ece4' }),
+        sq(bx - 0.1, by - 0.06, bx + 0.14, by + 0.02, 'rgba(150,130,120,.45)', 35),
+        sq(bx - 0.08, by - 0.05, bx + 0.04, by + 0.01, 'rgba(255,255,255,.5)', 36)
+      ])
+    }
+    // 两侧成排的小圆樱花树
+    {
+      const trees = [x0 + 0.42, x0 + 0.95, x1 - 0.95, x1 - 0.42]
+      trees.forEach((tx) => {
+        const ty = y1 + 1.05
+        const [sx, sy] = ip(tx, ty, 0)
+        add(tx, ty, [
+          sh(tx, ty, 8, 3.6, 0.13),
+          { d: `M${P([sx - 2.6, sy])}L${P([sx - 1, round1(sy - 22)])}L${P([sx + 2.6, round1(sy - 22)])}L${P([sx + 2, sy])}Z`, fill: '#7a5a4e' },
+          { d: ellipsePath(sx, sy - 30, 10, 8.4), fill: '#f7bacd' },
+          { d: ellipsePath(sx - 6, sy - 34, 6.4, 5.4), fill: '#ffd7e3' },
+          { d: ellipsePath(sx + 5, sy - 32, 5.6, 4.6), fill: '#f9c8d8' }
+        ])
+      })
+    }
+    // 花坛 + 升旗台
+    {
+      const bx = x0 + 0.25
+      const by = y1 + 0.42
+      const parts = [
+        ...boxParts(bx, by, 0.9, 0.28, 0, 8, { l: '#c9a48e', r: '#dcbba4', t: '#9a7660' }),
+        sq(bx + 0.04, by + 0.04, bx + 0.86, by + 0.24, '#7f9a6f', 8)
+      ]
+      for (let i = 0; i < 6; i++) {
+        parts.push({ d: ellipsePath(...ip(bx + 0.1 + i * 0.13, by + 0.14, 12), 3.2, 2.6), fill: ['#f4a0b8', '#ffd9a0', '#e9b8f0', '#ffc2cf', '#fff2c8', '#f6b3c6'][i] })
+      }
+      add(bx + 0.45, by, parts)
+    }
+    {
+      const fx = dcx - 0.95
+      const fy = y1 + 1.62
+      const [sx, sy] = ip(fx, fy, 0)
+      add(fx, fy, [
+        ...boxParts(fx - 0.28, fy - 0.28, 0.56, 0.56, 0, 7, { l: '#d6c9bc', r: '#e9ddd0', t: '#f4e9dc' }),
+        { d: `M${P([sx, sy - 7])}V${round1(sy - 62)}`, fill: 'none', stroke: '#a9929a', sw: 2.2 },
+        { d: poly([[sx + 1, sy - 62], [sx + 20, sy - 57], [sx + 20, sy - 47], [sx + 1, sy - 52]]), fill: '#ef98ac' }
+      ])
+    }
+  }
+
+  if (v.key === 'cafe') {
+    // 门口小黑板 + 两盆绿植 + 门口花箱
+    {
+      const sx0 = dcx - 0.58
+      const sy0 = y1 + 0.5
+      const [ax, ay] = ip(sx0, sy0, 0)
+      add(sx0, sy0, [
+        sh(sx0, sy0, 9, 3.4, 0.14),
+        { d: poly([[ax - 9, ay], [ax + 9, ay], [ax + 7, ay - 24], [ax - 7, ay - 24]]), fill: '#5a4a44' },
+        { d: poly([[ax - 7.4, ay - 1.6], [ax + 7.4, ay - 1.6], [ax + 6, ay - 22], [ax - 6, ay - 22]]), fill: '#3f4f42' },
+        { d: `M${P([ax - 4, ay - 17])}h6M${P([ax - 4, ay - 13])}h4M${P([ax - 4, ay - 9])}h5`, fill: 'none', stroke: 'rgba(255,246,232,.72)', sw: 1 },
+        { d: poly([[ax - 7, ay - 24], [ax + 7, ay - 24], [ax + 7, ay - 26], [ax - 7, ay - 26]]), fill: '#7a5a4e' }
+      ])
+    }
+    add(dcx + 0.58, y1 + 0.44, pot(dcx + 0.58, y1 + 0.44, 1, '#7f9f74'))
+    add(dcx - 0.3, y1 + 1.26, pot(dcx - 0.3, y1 + 1.26, 0.9, '#f4a0b8'))
+    // 窗下的花箱
+    add(x0 + 1.5, y1 + 0.24, [
+      ...boxParts(x0 + 1.15, y1 + 0.1, 0.7, 0.22, 0, 9, { l: '#c9a48e', r: '#dcbba4', t: '#9a7660' }),
+      ...Array.from({ length: 5 }, (_, i) => ({ d: ellipsePath(...ip(x0 + 1.24 + i * 0.14, y1 + 0.21, 13), 3.2, 2.6), fill: ['#f4a0b8', '#ffd9a0', '#e9b8f0', '#ffc2cf', '#fff2c8'][i] }))
+    ])
+  }
+
+  if (v.key === 'sweet') {
+    // 甜品推车 + 门口花箱 + 气球
+    {
+      const cx2 = dcx - 0.6
+      const cy2 = y1 + 0.62
+      const [sx, sy] = ip(cx2, cy2, 0)
+      add(cx2, cy2, [
+        sh(cx2, cy2, 11, 4.4, 0.14),
+        { d: poly([[sx - 11, sy - 14], [sx + 11, sy - 14], [sx + 9, sy - 2], [sx - 9, sy - 2]]), fill: '#fff2f4' },
+        { d: poly([[sx - 11, sy - 14], [sx + 11, sy - 14], [sx + 11, sy - 17], [sx - 11, sy - 17]]), fill: '#f3b3c4' },
+        { d: `M${P([sx - 11, sy - 16])}L${P([sx - 18, sy - 26])}`, fill: 'none', stroke: '#a98d83', sw: 1.6 },
+        { d: ellipsePath(sx - 6, sy, 3.2, 3.2), fill: '#7a5a62' },
+        { d: ellipsePath(sx + 6, sy, 3.2, 3.2), fill: '#7a5a62' },
+        { d: ellipsePath(sx - 3, sy - 20, 3.2, 2.8), fill: '#f6c3d2' },
+        { d: ellipsePath(sx + 4, sy - 21, 2.8, 2.4), fill: '#ffe0b8' }
+      ])
+    }
+    add(dcx + 0.56, y1 + 0.44, pot(dcx + 0.56, y1 + 0.44, 1, '#e88fa6'))
+    add(x0 + 0.3, y1 + 1.2, pot(x0 + 0.3, y1 + 1.2, 0.9, '#f6c3d2'))
+  }
+
+  if (v.key === 'flower') {
+    // 门口两层花架（比花桶更有花店的样子）
+    {
+      const bx = x1 + 0.62
+      const by = dcy + 0.5
+      const [sx, sy] = ip(bx, by, 0)
+      add(bx, by, [
+        sh(bx, by, 11, 4.6, 0.14),
+        { d: `M${P([sx - 10, sy])}V${round1(sy - 26)}M${P([sx + 10, sy - 3])}V${round1(sy - 29)}`, fill: 'none', stroke: '#a98d83', sw: 2 },
+        { d: poly([[sx - 11, sy - 12], [sx + 11, sy - 15], [sx + 11, sy - 17], [sx - 11, sy - 14]]), fill: '#c9a48e' },
+        { d: poly([[sx - 11, sy - 24], [sx + 11, sy - 27], [sx + 11, sy - 29], [sx - 11, sy - 26]]), fill: '#c9a48e' },
+        { d: ellipsePath(sx - 6, sy - 20, 4, 3.6), fill: '#f4a0b8' },
+        { d: ellipsePath(sx + 2, sy - 21, 4, 3.6), fill: '#ffd9a0' },
+        { d: ellipsePath(sx - 4, sy - 32, 4.2, 3.8), fill: '#d9b8ea' },
+        { d: ellipsePath(sx + 5, sy - 33, 3.8, 3.4), fill: '#ffc2cf' }
+      ])
+    }
+    add(x1 + 0.34, dcy - 0.62, pot(x1 + 0.34, dcy - 0.62, 1, '#9cb88d'))
+    // 小木牌
+    {
+      const bx = x1 + 0.32
+      const by = dcy + 1.02
+      const [sx, sy] = ip(bx, by, 0)
+      add(bx, by, [
+        { d: `M${P([sx, sy])}V${round1(sy - 16)}`, fill: 'none', stroke: '#a98d83', sw: 2 },
+        { d: poly([[sx - 10, sy - 16], [sx + 10, sy - 18], [sx + 10, sy - 25], [sx - 10, sy - 23]]), fill: '#f6ecdc' },
+        { d: `M${P([sx - 6, sy - 20])}h9`, fill: 'none', stroke: '#b98a7f', sw: 1.4 }
+      ])
+    }
+  }
+
+  if (v.key === 'station') {
+    // 月台上的花箱（平台高 8）
+    const py = y1 + 1.4
+    ;[x0 + 0.55, x0 + v.w - 0.55].forEach((px) => {
+      add(px, py, [
+        ...boxParts(px - 0.24, py - 0.13, 0.48, 0.26, 8, 16, { l: '#c9a48e', r: '#dcbba4', t: '#9a7660' }),
+        ...Array.from({ length: 3 }, (_, i) => ({ d: ellipsePath(...ip(px - 0.15 + i * 0.15, py, 19), 3.4, 2.8), fill: ['#f4a0b8', '#ffd9a0', '#ffc2cf'][i] }))
+      ])
+    })
+  }
+
+  // 远的先画、近的压上
+  groups.sort((a, b) => a.k - b.k)
+  const out = []
+  for (const g of groups) out.push(...g.parts)
+  return out
 }
 
 const venues = BUILDINGS.map(buildVenue)
@@ -2257,6 +2946,9 @@ onBeforeUnmount(() => {
 .tw__energy b { font-size: 13px; color: #6b4864; }
 .tw__energy i { font-style: normal; font-size: 10px; color: rgba(140, 110, 130, 0.7); }
 .tw__energy em { font-style: normal; font-size: 9px; letter-spacing: 0.1em; color: rgba(140, 110, 130, 0.6); margin-left: 2px; }
+.tw__mood { display: inline-flex; align-items: baseline; gap: 4px; font-variant-numeric: tabular-nums; }
+.tw__mood b { font-size: 13px; transition: color .4s var(--ease); }
+.tw__mood em { font-style: normal; font-size: 9px; letter-spacing: 0.06em; color: rgba(140, 110, 130, 0.6); white-space: nowrap; }
 
 /* ---------- 花瓣层 ---------- */
 .town__petals {
@@ -2322,6 +3014,40 @@ onBeforeUnmount(() => {
   color: rgba(82, 61, 91, 0.74);
   font-size: 11.5px;
   line-height: 1.85;
+}
+
+/* ---------- 属性速览 ---------- */
+.town__stats {
+  margin-top: 15px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(150, 110, 132, .22);
+}
+.town__stats-title { margin: 0; font-size: 10px; letter-spacing: .08em; color: var(--ink-soft); }
+.town__stats-title b { font-family: var(--font-serif); font-size: 12px; color: var(--sakura-700); letter-spacing: .04em; }
+.town__stats-list {
+  list-style: none;
+  margin: 9px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px 10px;
+}
+.town__stats-list li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font-size: 9px;
+  color: var(--ink-soft);
+}
+.town__stats-dot { width: 5px; height: 5px; border-radius: 50%; flex: none; }
+.town__stats-list em { font-style: normal; white-space: nowrap; letter-spacing: .02em; }
+.town__stats-list b {
+  margin-left: 2px;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
 .town__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 15px; }
 .town__primary,
