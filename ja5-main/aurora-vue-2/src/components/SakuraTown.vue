@@ -2,7 +2,7 @@
   <div class="town-page">
     <SiteNav :user="user" active="town" @go="$emit('navigate', $event)" @logout="$emit('logout')" />
 
-    <main class="town" :class="{ 'town--gust': gusting }">
+    <main class="town" :class="{ 'town--gust': gusting, 'is-flipping': flipping }">
       <!-- 天空底色：等距地图四周留出的天空由 CSS 负责，SVG 只画云 -->
       <div class="town__sky" aria-hidden="true">
         <i class="sky__sun"></i>
@@ -12,7 +12,7 @@
         <!-- 整座小镇是一块浮在天空里的等距小岛，全部 2:1 斜轴投影手绘 -->
         <svg
           class="town__svg"
-          :viewBox="`${VBX} ${VBY} ${VBW} ${VBH}`"
+          :viewBox="vbStr"
           preserveAspectRatio="xMidYMid meet"
           role="img"
           aria-label="俯瞰视角的樱花小镇：中央是喷泉广场，四周分布书店、便利店、健身房、公园和一栋小屋，每栋都可以点击进入"
@@ -341,6 +341,45 @@
         </div>
       </div>
 
+      <!-- 左右翻页箭头：切到下一个街区 -->
+      <button
+        class="mapnav mapnav--prev"
+        type="button"
+        aria-label="上一张地图"
+        @click="prevPage"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+          <path d="M14.5 5 7.5 12l7 7" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
+      <button
+        class="mapnav mapnav--next"
+        type="button"
+        aria-label="下一张地图"
+        @click="nextPage"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+          <path d="M9.5 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
+
+      <!-- 底部页签：全景 / 本町 / 商店街 / 学校·车站 -->
+      <nav class="mapdots" aria-label="地图分页">
+        <button
+          v-for="(p, i) in PAGE_DEFS"
+          :key="p.key"
+          type="button"
+          class="mapdot"
+          :class="{ 'is-on': i === page }"
+          :aria-current="i === page ? 'true' : 'false'"
+          @click="goPage(i)"
+        >
+          <b>{{ p.label }}</b>
+          <i>{{ p.en }}</i>
+        </button>
+        <span class="mapdots__hint">← → 切换地图</span>
+      </nav>
+
       <!-- 钱包胶囊：金币 / 体力，和各个店铺页面共用同一份状态 -->
       <div class="town__wallet" aria-label="钱包状态">
         <span class="tw__coin"><i>¥</i>{{ wallet.money }}</span>
@@ -359,7 +398,7 @@
         <p class="town__eyebrow"><span></span>SAKURA TOWN · 樱花小镇</p>
         <h1>点一下，<br /><em>走进任何一间屋。</em></h1>
         <p class="town__lede">
-          从上往下看，小镇只有巴掌大 —— 书店、便利店、健身房、公园、学校和车站，还有你自己的小屋。
+          从上往下看，小镇只有巴掌大 —— 九间屋子、一座公园，还有一条开往海边的铁轨。
         </p>
         <div class="town__actions">
           <button class="town__primary" type="button" @click="go('home')">
@@ -402,10 +441,12 @@ function go (key) { emit('navigate', key) }
    这是标准的 2.5D 平行投影：没有透视缩放，所以远近一样大，
    看起来像游戏里的俯视地图，但每栋楼都有正面和侧面。
    ========================================================= */
-const VBX = -215      // 视野左上角：把多余的天空裁掉，让岛占满画面
-const VBY = 112
-const VBW = 1440
-const VBH = 812
+// 取景框：故意比小岛窄一点 —— 菱形岛的四个角全是空的，
+// 不收紧的话镇子只占屏幕中间一小块。裁掉的是上方天空与前方崖底，建筑全在框内。
+const VBX = -96
+const VBY = 196
+const VBW = 1188
+const VBH = 660
 const HW = 33        // 半格宽
 const HH = 16.5      // 半格高（2:1）
 const OX = 500       // 格子原点在画布上的位置
@@ -500,7 +541,11 @@ const ROADS = [
   // 学校（右翼）
   { pts: [[10.2, 8.0], [12.4, 7.3], [14.6, 6.4], [16.6, 5.8]], w: 34 },
   // 车站（前场，从广场下来的缓坡）
-  { pts: [[9.4, 10.3], [8.6, 12.2], [8.2, 14.3], [9.2, 15.9], [10.9, 16.4]], w: 36 }
+  { pts: [[9.4, 10.3], [8.6, 12.2], [8.2, 14.3], [9.2, 15.9], [10.9, 16.4]], w: 36 },
+  // 商店街（右前方：咖啡馆 / 甜品屋门口）
+  { pts: [[10.6, 10.6], [12.4, 12.2], [14.6, 13.8], [17.4, 14.4], [19.6, 13.8]], w: 32 },
+  // 站前花店的小径
+  { pts: [[9.2, 15.9], [9.4, 17.0], [9.2, 18.0]], w: 26 }
 ]
 const roads = ROADS.map((r) => ({
   edge: ribbon(r.pts, r.w + 9),
@@ -688,6 +733,43 @@ const BUILDINGS = [
     rows: [[20, 36]],
     cols: [[0.1, 0.26], [0.72, 0.88]],
     pitched: true
+  },
+  {
+    key: 'cafe',
+    label: '咖啡馆',
+    en: 'CAFE HANAMI',
+    x: 14.2, y: 11.8, w: 2.1, d: 1.7, h: 62,
+    wallL: '#d9c3ad', wallR: '#f7e9d7',
+    doorFace: 'left',
+    doorU: [0.08, 0.3],
+    awningU: [0.04, 0.36],
+    rows: [[44, 54]],
+    cols: [[0.44, 0.58], [0.64, 0.78], [0.84, 0.96]],
+    awning: ['#6f8f74', '#eef4ea']
+  },
+  {
+    key: 'sweet',
+    label: '甜品屋',
+    en: 'SWEETS',
+    x: 17.2, y: 12.4, w: 2.1, d: 1.7, h: 58,
+    wallL: '#f0d5dd', wallR: '#fff4f1',
+    doorFace: 'left',
+    doorU: [0.1, 0.32],
+    awningU: [0.06, 0.38],
+    rows: [[40, 50]],
+    cols: [[0.5, 0.64], [0.7, 0.84]],
+    awning: ['#e88fa6', '#ffeef3']
+  },
+  {
+    key: 'flower',
+    label: '花店',
+    en: 'FLOWER',
+    x: 6.8, y: 16.2, w: 1.9, d: 1.7, h: 54,
+    wallL: '#dfe4d0', wallR: '#f8faee',
+    doorFace: 'right',
+    doorU: [0.05, 0.22],
+    rows: [[44, 52]],
+    cols: [[0.55, 0.7], [0.76, 0.92]]
   },
   {
     key: 'school',
@@ -1066,6 +1148,104 @@ function buildVenue (v) {
     })
   }
 
+  if (v.key === 'cafe') {
+    // 咖啡馆：大玻璃窗 + 窗上的杯子 + 圆牌吊招牌 + 门口小圆桌
+    const wu0 = 0.4
+    const wu1 = 0.95
+    deco.push({ d: faceQuad(doorFn, wu0, wu1, 12, 42), fill: 'rgba(255, 238, 205, .9)' })
+    deco.push({ d: faceQuad(doorFn, wu0, wu1, 12, 42), fill: 'none', stroke: '#9a7a5e', sw: 2 })
+    deco.push({ d: faceQuad(doorFn, wu0 + 0.02, wu1 - 0.02, 26, 28), fill: 'rgba(160, 120, 90, .45)' })
+    // 窗中的杯子：杯身 + 把手 + 两缕热气
+    const [cx1, cy1] = doorFn(0.6, 30)
+    deco.push({ d: poly([[cx1 - 7, cy1], [cx1 + 7, cy1], [cx1 + 5, cy1 + 9], [cx1 - 5, cy1 + 9]]), fill: '#fffaf3' })
+    deco.push({ d: ellipsePath(cx1 + 8.5, cy1 + 4, 3.2, 3.2), fill: 'none', stroke: '#fffaf3', sw: 1.8 })
+    deco.push({ d: `M${P([cx1 - 3, cy1 - 3])}q3 -4 0 -7M${P([cx1 + 2, cy1 - 3])}q3 -4 0 -7`, fill: 'none', stroke: 'rgba(255,250,243,.8)', sw: 1.4 })
+    // 圆牌吊招牌
+    const [sx, sy] = doorFn(0.08, 56)
+    deco.push({ d: `M${P([sx, sy])}h9`, fill: 'none', stroke: '#7f5771', sw: 2 })
+    deco.push({ d: ellipsePath(sx + 17, sy + 4, 9, 9), fill: '#3f4f42', stroke: '#e6d7c4', sw: 1.4 })
+    deco.push({ d: ellipsePath(sx + 17, sy + 4, 4.6, 4.6), fill: '#f6ead6' })
+    deco.push({ d: `M${P([sx + 15, sy + 2])}q2 -3 0 -5`, fill: 'none', stroke: '#f6ead6', sw: 1.2 })
+    // 门口小圆桌 + 两把椅子
+    const [tx, ty] = ip(x0 - 0.36, y1 + 0.42)
+    deco.push({ d: ellipsePath(tx, ty - 1, 11, 5.4), fill: '#f4e7d6' })
+    deco.push({ d: ellipsePath(tx, ty - 2.5, 11, 5.4), fill: '#fffaf1' })
+    deco.push({ d: `M${P([tx, ty])}v8`, fill: 'none', stroke: '#8c7460', sw: 2 })
+    deco.push({ d: ellipsePath(tx - 15, ty + 2, 5.5, 3), fill: '#c9b7a2' })
+    deco.push({ d: ellipsePath(tx + 13, ty + 4, 5.5, 3), fill: '#c9b7a2' })
+  }
+
+  if (v.key === 'sweet') {
+    // 甜品屋：玻璃甜点柜 + 柜台上的蛋糕 + 门口带伞的小桌
+    const wu0 = 0.38
+    const wu1 = 0.95
+    deco.push({ d: faceQuad(doorFn, wu0, wu1, 10, 38), fill: 'rgba(255, 246, 246, .94)' })
+    deco.push({ d: faceQuad(doorFn, wu0, wu1, 10, 38), fill: 'none', stroke: '#c98da0', sw: 2 })
+    deco.push({ d: faceQuad(doorFn, wu0 + 0.02, wu1 - 0.02, 22, 23.6), fill: 'rgba(220, 150, 172, .55)' })
+    // 柜里的小蛋糕：一排小方块 + 一颗樱桃
+    const cakes = ['#f6c3d2', '#ffe0b8', '#e8c9f0', '#c9e6d8', '#ffd0d8']
+    for (let i = 0; i < 5; i++) {
+      const a = wu0 + 0.04 + i * 0.105
+      const b = a + 0.07
+      deco.push({ d: faceQuad(doorFn, a, b, 13, 19), fill: cakes[i] })
+      deco.push({ d: faceQuad(doorFn, a + 0.012, b - 0.012, 19, 20.6), fill: '#fffaf5' })
+    }
+    // 招牌：高脚杯甜品 + 樱桃
+    const [sx, sy] = doorFn(0.06, 48)
+    deco.push({ d: poly([[sx + 3, sy], [sx + 21, sy], [sx + 21, sy - 22], [sx + 3, sy - 22]]), fill: '#fff7f4', stroke: 'rgba(160, 100, 120, .35)', sw: 1 })
+    deco.push({ d: poly([[sx + 7, sy - 15], [sx + 17, sy - 15], [sx + 12, sy - 5], [sx + 12, sy - 3]]), fill: '#e88fa6' })
+    deco.push({ d: ellipsePath(sx + 12, sy - 17.5, 2.4, 2.4), fill: '#d95c78' })
+    // 门口带伞的小圆桌
+    const [tx, ty] = ip(x0 + 0.1, y1 + 0.5)
+    deco.push({ d: `M${P([tx, ty])}v-34`, fill: 'none', stroke: '#a98d92', sw: 2 })
+    deco.push({ d: ellipsePath(tx, ty - 34, 20, 8), fill: '#f3b3c4' })
+    deco.push({ d: ellipsePath(tx, ty - 36, 20, 8), fill: '#ffd7e1' })
+    for (let i = 0; i < 5; i++) {
+      const a = Math.PI + (Math.PI / 4) * i
+      deco.push({ d: ellipsePath(tx + Math.cos(a) * 18, ty - 32 + Math.sin(a) * 3, 3.4, 2.6), fill: '#ffeaf0' })
+    }
+    deco.push({ d: ellipsePath(tx, ty - 1, 9, 4.4), fill: '#fffaf6' })
+  }
+
+  if (v.key === 'flower') {
+    // 花店：整面橱窗摆花 + 窗前花桶 + 檐下条纹雨棚 + 吊篮
+    const wu0 = 0.26
+    const wu1 = 0.96
+    deco.push({ d: faceQuad(doorFn, wu0, wu1, 10, 38), fill: 'rgba(255, 253, 244, .95)' })
+    deco.push({ d: faceQuad(doorFn, wu0, wu1, 10, 38), fill: 'none', stroke: '#8fae83', sw: 2.2 })
+    // 橱窗里的一排花（沿着窗台）
+    for (let i = 0; i < 4; i++) {
+      const [fx, fy] = doorFn(wu0 + 0.09 + i * 0.16, 17)
+      deco.push({ d: ellipsePath(fx, fy, 4.4, 4.8), fill: ['#f4a0b8', '#ffd9a0', '#d9b8ea', '#ffc2cf'][i] })
+      deco.push({ d: ellipsePath(fx - 2, fy + 5, 2.8, 3.2), fill: '#9cbb8e' })
+    }
+    // 雨棚：手画在橱窗之上（通用雨棚会被橱窗盖掉）
+    const [a1x, a1y] = doorFn(wu0 - 0.03, 40)
+    const [a2x, a2y] = doorFn(wu1 + 0.02, 40)
+    for (let i = 0; i < 6; i++) {
+      const t0 = i / 6
+      const t1 = (i + 1) / 6
+      const p0 = [a1x + (a2x - a1x) * t0, a1y + (a2y - a1y) * t0]
+      const p1 = [a1x + (a2x - a1x) * t1, a1y + (a2y - a1y) * t1]
+      deco.push({ d: poly([p0, p1, [p1[0], p1[1] - 8], [p0[0], p0[1] - 8]]), fill: i % 2 ? '#f7fbf2' : '#8fae83' })
+    }
+    deco.push({ d: `M${P([a1x, a1y + 1])}L${P([a2x, a2y + 1])}`, fill: 'none', stroke: 'rgba(80,100,76,.35)', sw: 1.2 })
+    // 门口的三只花桶
+    for (let i = 0; i < 3; i++) {
+      const [px, py] = doorFn(wu0 + 0.04 + i * 0.18, 0)
+      deco.push({ d: poly([[px - 5, py], [px + 5, py], [px + 4, py - 9], [px - 4, py - 9]]), fill: '#cfb79f' })
+      deco.push({ d: ellipsePath(px - 2, py - 13, 3.6, 3.6), fill: ['#f4a0b8', '#ffd9a0', '#d9b8ea'][i] })
+      deco.push({ d: ellipsePath(px + 2.5, py - 15, 3.2, 3.2), fill: ['#ffc2cf', '#fff0c8', '#f0c8ff'][i] })
+      deco.push({ d: `M${P([px, py - 9])}v-3`, fill: 'none', stroke: '#8fae83', sw: 1.8 })
+    }
+    // 吊篮
+    const [hx, hy] = doorFn(0.88, 50)
+    deco.push({ d: `M${P([hx, hy - 9])}v6`, fill: 'none', stroke: '#8a7361', sw: 1.4 })
+    deco.push({ d: ellipsePath(hx, hy - 1, 5.6, 3.8), fill: '#b98a6f' })
+    deco.push({ d: ellipsePath(hx - 2.6, hy - 5, 3.8, 3.2), fill: '#f0a2bc' })
+    deco.push({ d: ellipsePath(hx + 2.8, hy - 6, 3.4, 2.8), fill: '#ffd6a8' })
+  }
+
   if (extraRoof.length) roofParts.push(...extraRoof)
 
   return {
@@ -1190,7 +1370,11 @@ const TREES = [
   { x: 19.8, y: 12.4, s: 0.86 },
   { x: 15.5, y: 17.8, s: 0.76 },
   { x: 3.6, y: 18.6, s: 0.82 },
-  { x: 19.4, y: 8.4, s: 0.78 }
+  { x: 19.4, y: 8.4, s: 0.78 },
+  // 左侧边缘
+  { x: 0.6, y: 7.2, s: 0.86 },
+  { x: 1.4, y: 12.2, s: 0.8 },
+  { x: 17.6, y: 15.6, s: 0.82 }
 ]
 
 const LAMPS = [
@@ -1202,7 +1386,7 @@ const LAMPS = [
   { x: 9.2, y: 13.4 },
   { x: 9.8, y: 16.2 },
   { x: 16.2, y: 9.0 },
-  { x: 18.4, y: 13.6 }
+  { x: 20.0, y: 11.2 }
 ].map((l, i) => {
   const [bx, by] = ip(l.x, l.y)
   return {
@@ -1241,7 +1425,8 @@ const BUSHES = [
   { x: 8.4, y: 13.4 }, { x: 12.2, y: 10.4 }, { x: 15.6, y: 8.2 }, { x: 4.4, y: 4.2 },
   { x: 9.4, y: 2.4 }, { x: 16.0, y: 6.2 }, { x: 2.2, y: 12.6 }, { x: 7.0, y: 9.9 },
   { x: 15.2, y: 15.6 }, { x: 17.8, y: 17.6 }, { x: 20.0, y: 15.2 }, { x: 19.0, y: 10.6 },
-  { x: 4.8, y: 17.4 }, { x: 8.0, y: 19.2 }, { x: 16.4, y: 19.0 }
+  { x: 4.8, y: 17.4 }, { x: 8.0, y: 19.2 }, { x: 16.4, y: 19.0 },
+  { x: 0.4, y: 8.6 }, { x: 2.0, y: 6.4 }, { x: 19.6, y: 15.4 }, { x: 16.2, y: 10.6 }
 ].map((b, i) => {
   const [bx, by] = ip(b.x, b.y)
   return { type: 'bush', id: `bush${i}`, depth: b.x + b.y, bx, by }
@@ -1440,11 +1625,89 @@ const stageEl = ref(null)
 const stageW = ref(0)
 const stageH = ref(0)
 
+/* =========================================================
+   地图分页：全景 + 三个街区
+   —— 切页只是换 viewBox（推近镜头），房子并没有搬家，
+      所以名牌、点击热区会跟着一起走；换框的瞬间用淡出遮掉跳变
+   ========================================================= */
+const FULL_BOX = { x: VBX, y: VBY, w: VBW, h: VBH }
+
+/** 把一组建筑框成取景框（含名牌上方的留白），再按 1.72 补齐比例 */
+function frameOf (keys, pad = 82) {
+  let x0 = Infinity
+  let y0 = Infinity
+  let x1 = -Infinity
+  let y1 = -Infinity
+  const add = ([px, py]) => {
+    x0 = Math.min(x0, px)
+    y0 = Math.min(y0, py)
+    x1 = Math.max(x1, px)
+    y1 = Math.max(y1, py)
+  }
+  const boxes = BUILDINGS.filter((b) => keys.includes(b.key))
+  if (keys.includes('park')) boxes.push({ x: 10.0, y: 11.2, w: 3.8, d: 3.4, h: 44 })
+  boxes.forEach((b) => {
+    const x2 = b.x + b.w
+    const y2 = b.y + b.d
+    const top = b.h + 58
+    add(ip(b.x, b.y, 0))
+    add(ip(x2, b.y, 0))
+    add(ip(b.x, y2, 0))
+    add(ip(x2, y2, 0))
+    add(ip(b.x, y2, top))
+    add(ip(x2, y2, top))
+  })
+  x0 -= pad
+  x1 += pad
+  y0 -= pad + 24
+  y1 += pad
+  const AR = 1.72
+  let w = x1 - x0
+  let h = y1 - y0
+  if (w / h < AR) w = h * AR
+  else h = w / AR
+  const cx = (x0 + x1) / 2
+  const cy = (y0 + y1) / 2
+  return { x: cx - w / 2, y: cy - h / 2, w, h }
+}
+
+const PAGE_DEFS = [
+  { key: 'all', label: '全景', en: 'OVERVIEW', keys: null, box: FULL_BOX },
+  { key: 'honmachi', label: '本町', en: 'TOWN CENTER', keys: ['home', 'store', 'gamehome', 'park'], box: null },
+  { key: 'street', label: '商店街', en: 'SHOPPING STREET', keys: ['cafe', 'sweet', 'flower', 'gym'], box: null },
+  { key: 'school', label: '学校·车站', en: 'SCHOOL & STATION', keys: ['school', 'station'], box: null }
+].map((p) => ({ ...p, box: p.box || frameOf(p.keys) }))
+
+const page = ref(0)
+const flipping = ref(false)
+const vb = ref({ ...FULL_BOX })
+const vbStr = computed(() => `${round1(vb.value.x)} ${round1(vb.value.y)} ${round1(vb.value.w)} ${round1(vb.value.h)}`)
+const pageKeys = computed(() => PAGE_DEFS[page.value].keys)
+
+let flipTimer = null
+let flipTimer2 = null
+function goPage (i) {
+  const n = PAGE_DEFS.length
+  const next = ((i % n) + n) % n
+  if (next === page.value || flipping.value) return
+  flipping.value = true
+  clearTimeout(flipTimer)
+  clearTimeout(flipTimer2)
+  flipTimer = setTimeout(() => {
+    page.value = next
+    vb.value = { ...PAGE_DEFS[next].box }
+    flipTimer2 = setTimeout(() => { flipping.value = false }, 40)
+  }, 170)
+}
+function nextPage () { goPage(page.value + 1) }
+function prevPage () { goPage(page.value - 1) }
+
 const spots = computed(() => {
-  const scale = Math.min(stageW.value / VBW, stageH.value / VBH) || 0
-  const dx = (stageW.value - VBW * scale) / 2 - VBX * scale
-  const dy = (stageH.value - VBH * scale) / 2 - VBY * scale
-  return venues.map((v) => {
+  const scale = Math.min(stageW.value / vb.value.w, stageH.value / vb.value.h) || 0
+  const dx = (stageW.value - vb.value.w * scale) / 2 - vb.value.x * scale
+  const dy = (stageH.value - vb.value.h * scale) / 2 - vb.value.y * scale
+  const only = pageKeys.value
+  return venues.filter((v) => !only || only.includes(v.key)).map((v) => {
     const px = dx + v.labelPos[0] * scale
     const py = dy + v.labelPos[1] * scale
     // 贴边时把名牌拉回画面内，免得被小岛外框裁掉一角
@@ -1454,7 +1717,8 @@ const spots = computed(() => {
       label: v.label,
       en: v.en,
       px: round1(Math.min(Math.max(px, pad), stageW.value - pad)),
-      py: round1(py)
+      // 上下也要夹：收紧取景框后，最上面那排建筑的名牌会被画框切掉
+      py: round1(Math.min(Math.max(py, 58), stageH.value - 26))
     }
   })
 })
@@ -1638,13 +1902,22 @@ onMounted(() => {
   resizeObserver.observe(cvs)
   raf = requestAnimationFrame(frame)
   window.addEventListener('resize', syncStage)
+  window.addEventListener('keydown', onPageKey)
 })
+
+function onPageKey (e) {
+  if (e.key === 'ArrowLeft') { e.preventDefault(); prevPage() }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); nextPage() }
+}
 
 onBeforeUnmount(() => {
   if (stageObserver) stageObserver.disconnect()
   if (raf) cancelAnimationFrame(raf)
   if (resizeObserver) resizeObserver.disconnect()
   window.removeEventListener('resize', syncStage)
+  window.removeEventListener('keydown', onPageKey)
+  clearTimeout(flipTimer)
+  clearTimeout(flipTimer2)
   clearTimeout(gustTimer)
 })
 </script>
@@ -1655,13 +1928,13 @@ onBeforeUnmount(() => {
   z-index: 2;
   width: 100%;
   min-height: 100vh;
-  padding: 0 16px 16px;
+  padding: 0 10px 10px;
 }
 .town {
   position: relative;
-  width: min(1520px, 100%);
-  height: calc(100svh - 118px);
-  min-height: 620px;
+  width: min(1600px, 100%);
+  height: calc(100svh - 104px);
+  min-height: 640px;
   margin: 0 auto;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.7);
@@ -1800,6 +2073,82 @@ onBeforeUnmount(() => {
 }
 
 /* ---------- 建筑名牌（HTML 层） ---------- */
+
+/* ---------- 地图翻页 ---------- */
+.town__svg,
+.hotspots { transition: opacity .18s ease; }
+.is-flipping .town__svg,
+.is-flipping .hotspots { opacity: 0; }
+
+.mapnav {
+  position: absolute;
+  top: 50%;
+  z-index: 6;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-top: -22px;
+  border: 1px solid rgba(255, 255, 255, .92);
+  border-radius: 50%;
+  background: rgba(255, 253, 253, .8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #7a5570;
+  cursor: pointer;
+  box-shadow: 0 10px 24px -14px rgba(88, 50, 84, .8);
+  transition: transform .25s var(--ease), background .25s;
+}
+.mapnav svg { width: 20px; height: 20px; }
+.mapnav--prev { left: 14px; }
+.mapnav--next { right: 14px; }
+.mapnav:hover { background: #fff; transform: scale(1.07); }
+.mapnav:active { transform: scale(.96); }
+
+.mapdots {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, .92);
+  border-radius: 999px;
+  background: rgba(255, 253, 253, .74);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 12px 26px -18px rgba(88, 50, 84, .7);
+  transform: translateX(-50%);
+}
+.mapdot {
+  display: grid;
+  gap: 1px;
+  padding: 5px 13px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #8b6f83;
+  font: inherit;
+  cursor: pointer;
+  transition: background .25s, color .25s;
+}
+.mapdot b { font-size: 11.5px; font-weight: 700; letter-spacing: .1em; }
+.mapdot i { font-style: normal; font-size: 7px; letter-spacing: .16em; opacity: .55; }
+.mapdot.is-on {
+  background: linear-gradient(120deg, var(--sakura-500), var(--sakura-600));
+  color: #fff;
+  box-shadow: 0 8px 18px -12px rgba(232, 84, 127, .95);
+}
+.mapdot.is-on i { opacity: .8; }
+.mapdots__hint {
+  padding: 0 6px 0 4px;
+  font-size: 9.5px;
+  letter-spacing: .1em;
+  color: rgba(140, 110, 130, .62);
+}
+
 .hotspots {
   position: absolute;
   inset: 0;

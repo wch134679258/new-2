@@ -79,6 +79,15 @@
     @logout="doLogout"
   />
 
+  <!-- 商店街三间小店：咖啡馆 / 甜品屋 / 花店，共用 ShopPage -->
+  <ShopPage
+    v-else-if="view === 'cafe' || view === 'sweet' || view === 'flower'"
+    :user="user"
+    :shop-key="view"
+    @navigate="onNavigate"
+    @logout="doLogout"
+  />
+
   <!-- 樱花学校：黑板课程表 + 图书角 -->
   <SchoolPage
     v-else-if="view === 'school'"
@@ -246,6 +255,7 @@ import FishGamePage from './components/FishGamePage.vue'
 import SakuraTown from './components/SakuraTown.vue'
 import SchoolPage from './components/SchoolPage.vue'
 import StationPage from './components/StationPage.vue'
+import ShopPage from './components/ShopPage.vue'
 import TownEntry from './components/TownEntry.vue'
 import { useTilt } from './composables/useTilt'
 import { toast } from './composables/useToast'
@@ -265,6 +275,7 @@ const doneSub = ref('')
  *   town      樱花小镇（默认首页，六栋建筑可点）
  *   school    樱花学校（黑板课程表 / 图书角）
  *   station   樱花车站（发车牌 / 时刻表 / 车票）
+ *   cafe / sweet / flower  商店街三间小店（共用 ShopPage：价目 + 小票）
  *   home      书店（原手记馆，书可买可读）
  *   gamehome  家（笔记本里玩小游戏 / 床睡觉）
  *   store     便利店（打工赚金币）
