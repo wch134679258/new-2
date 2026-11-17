@@ -413,6 +413,7 @@
             </svg>
           </button>
           <button class="town__secondary" type="button" @click="go('park')">去公园坐坐</button>
+          <button class="town__secondary" type="button" @click="go('backhill')">上后山</button>
         </div>
         <p class="town__click-hint"><span>✦</span>点建筑进屋，点樱花树撒一场花</p>
 

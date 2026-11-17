@@ -150,6 +150,7 @@ const menus = [
   { key: 'store', label: '便利店' },
   { key: 'gym', label: '健身房' },
   { key: 'park', label: '公园' },
+  { key: 'backhill', label: '后山' },
   { key: 'profile', label: '我的' },
   { key: 'about', label: '关于' },
   { key: 'admin-login', label: '后台管理系统' }

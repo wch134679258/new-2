@@ -79,6 +79,22 @@
     @logout="doLogout"
   />
 
+  <!-- 后山：日常地图的延伸，巨樱在最深处 -->
+  <BackHill
+    v-else-if="view === 'backhill'"
+    :user="user"
+    @navigate="onNavigate"
+    @logout="doLogout"
+    @enter-realm="goRealm()"
+  />
+
+  <!-- 樱之异境：从后山巨樱的雾里进去的副本 -->
+  <Dungeon
+    v-else-if="view === 'dungeon'"
+    @exit-realm="onExitRealm"
+    @navigate="onNavigate"
+  />
+
   <!-- 商店街三间小店：咖啡馆 / 甜品屋 / 花店，共用 ShopPage -->
   <ShopPage
     v-else-if="view === 'cafe' || view === 'sweet' || view === 'flower'"
@@ -257,6 +273,8 @@ import SchoolPage from './components/SchoolPage.vue'
 import StationPage from './components/StationPage.vue'
 import ShopPage from './components/ShopPage.vue'
 import TownEntry from './components/TownEntry.vue'
+import BackHill from './components/BackHill.vue'
+import Dungeon from './components/Dungeon.vue'
 import { useTilt } from './composables/useTilt'
 import { toast } from './composables/useToast'
 import { getMe, logout, getToken } from './api/auth'
@@ -293,9 +311,9 @@ const articleId = ref(null)
 const night = computed(() => view.value === 'auth' || view.value === 'admin-login')
 
 /** 这两屏用的是自己的完整画面（SVG 小镇 / 电影感底图），不要再叠全局天空与花瓣 */
-const bareStage = computed(() => view.value === 'town' || view.value === 'entry')
+const bareStage = computed(() => ['town', 'entry', 'backhill', 'dungeon'].includes(view.value))
 
-const showFooter = computed(() => !['auth', 'admin-login', 'admin', 'entry', 'town', 'gamehome', 'game', 'tetris', 'fish'].includes(view.value))
+const showFooter = computed(() => !['auth', 'admin-login', 'admin', 'entry', 'town', 'backhill', 'dungeon', 'gamehome', 'game', 'tetris', 'fish'].includes(view.value))
 
 // 书店自己管理搜索 / 分类 / 分页，这里不再需要外部筛选参数
 
@@ -345,6 +363,21 @@ function goAuth () {
 }
 
 /* ---------- 页面导航 ---------- */
+/* 后山 → 异境 → 后山：一条独立的小循环，不走导航菜单 */
+function goRealm () {
+  view.value = 'dungeon'
+}
+
+function onExitRealm (payload) {
+  view.value = 'backhill'
+  const petals = payload && payload.petals ? payload.petals : 0
+  if (payload && payload.reason === 'lose') {
+    toast.info('被花瓣裹着送回了后山 —— 下次带上更多花瓣再来')
+  } else if (petals > 0) {
+    toast.success(`从樱之异境带回 ${petals} 片花瓣`)
+  }
+}
+
 function onNavigate (key) {
   if (key === 'admin-login' && (!user.value || Number(user.value.permission) !== 0)) {
     toast.info('仅管理员可访问后台管理系统')
