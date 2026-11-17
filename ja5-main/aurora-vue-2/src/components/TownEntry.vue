@@ -9,21 +9,17 @@
     :class="{ 'is-ready': ready, 'is-leaving': leaving }"
     aria-labelledby="entry-title"
   >
-    <!-- 主视觉：慢慢推近的镜头（竖屏换一张裁好的）
-         picture 里两版都是同一张画：横屏看全景，竖屏看树干与湖面 -->
+    <!-- 主视觉：慢慢推近的镜头（桌面 16:9 取景，拱形树冠压住上半部） -->
     <div class="entry__media" aria-hidden="true">
-      <picture>
-        <source media="(max-width: 640px)" :srcset="photoMobile" />
-        <img
-          class="entry__photo"
-          :src="photo"
-          alt=""
-          decoding="async"
-          fetchpriority="high"
-          @load="ready = true"
-          @error="ready = true"
-        />
-      </picture>
+      <img
+        class="entry__photo"
+        :src="photo"
+        alt=""
+        decoding="async"
+        fetchpriority="high"
+        @load="ready = true"
+        @error="ready = true"
+      />
     </div>
 
     <!-- 调色层：上方压深给品牌，下方压深给文案，中间留出树 -->
@@ -116,7 +112,6 @@ defineProps({
 const emit = defineEmits(['enter', 'navigate', 'logout'])
 
 const photo = '/town/entry-tree.jpg'
-const photoMobile = '/town/entry-tree-portrait.jpg'
 
 const ready = ref(false)
 const leaving = ref(false)
@@ -143,7 +138,7 @@ function onKeydown (e) {
 
 onMounted(() => {
   if (petalCanvas.value) {
-    field = createPetalField(petalCanvas.value, { density: 0.00011, max: 170, base: 17, wind: 0.2 })
+    field = createPetalField(petalCanvas.value, { density: 0.000095, max: 150, base: 16, wind: 0.19 })
     field.mount()
   }
   window.addEventListener('keydown', onKeydown)
@@ -212,7 +207,9 @@ onBeforeUnmount(() => {
   pointer-events: none;
   background:
     linear-gradient(180deg, rgba(16, 14, 30, 0.6) 0%, rgba(16, 14, 30, 0.16) 16%, rgba(16, 14, 30, 0) 38%),
-    linear-gradient(0deg, rgba(15, 11, 22, 0.9) 0%, rgba(15, 11, 22, 0.62) 16%, rgba(15, 11, 22, 0.12) 42%, rgba(15, 11, 22, 0) 62%);
+    linear-gradient(0deg, rgba(15, 11, 22, 0.9) 0%, rgba(15, 11, 22, 0.62) 16%, rgba(15, 11, 22, 0.12) 42%, rgba(15, 11, 22, 0) 62%),
+    /* 左下角再压一层：文案区落在山体亮面上，不加这层白字会发灰 */
+    radial-gradient(66% 74% at 14% 66%, rgba(13, 9, 19, 0.5), rgba(13, 9, 19, 0) 74%);
 }
 /* 树冠里的暖光：让花簇透出来 */
 .entry__bloom {
@@ -313,8 +310,9 @@ onBeforeUnmount(() => {
   gap: 9px;
   white-space: nowrap;
   flex: none;
-  color: rgba(255, 248, 244, 0.96);
-  text-shadow: 0 2px 16px rgba(20, 12, 26, 0.6);
+  color: rgba(255, 250, 247, 1);
+  /* 压在花簇上，光靠一层阴影不够，做两层：近处勾边 + 远处扩散 */
+  text-shadow: 0 1px 3px rgba(12, 7, 16, 0.85), 0 4px 20px rgba(12, 7, 16, 0.7);
 }
 .eb-mark {
   width: 15px;
@@ -335,7 +333,7 @@ onBeforeUnmount(() => {
   white-space: nowrap;
   font-size: 9px;
   letter-spacing: 0.3em;
-  color: rgba(255, 238, 244, 0.6);
+  color: rgba(255, 244, 248, 0.78);
 }
 
 .entry__user { display: flex; align-items: center; gap: 14px; }
@@ -426,7 +424,9 @@ onBeforeUnmount(() => {
 }
 .entry__title em {
   font-style: normal;
-  background: linear-gradient(100deg, #ffe9d6 0%, #ffd3dc 44%, #ffc6e6 100%);
+  /* 关键：父级 h1 的 text-shadow 会从透明字形里透出来，把这一行染成灰的 */
+  text-shadow: none;
+  background: linear-gradient(100deg, #fff1e0 0%, #ffdfe6 44%, #ffd2ec 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -438,8 +438,8 @@ onBeforeUnmount(() => {
   margin: 18px 0 0;
   font-size: 13px;
   line-height: 2;
-  color: rgba(255, 246, 243, 0.84);
-  text-shadow: 0 2px 14px rgba(16, 10, 22, 0.8);
+  color: rgba(255, 248, 246, 0.9);
+  text-shadow: 0 2px 16px rgba(14, 9, 20, 0.9);
   animation: entry-rise 1s var(--ease) 0.5s both;
 }
 
@@ -514,7 +514,7 @@ onBeforeUnmount(() => {
   margin: 16px 0 0;
   font-size: 10.5px;
   letter-spacing: 0.08em;
-  color: rgba(255, 240, 240, 0.42);
+  color: rgba(255, 240, 240, 0.55);
   animation: entry-rise 1s var(--ease) 0.7s both;
 }
 .entry__hint kbd {
@@ -600,9 +600,6 @@ onBeforeUnmount(() => {
   .entry__lede { max-width: 100%; }
 }
 @media (max-width: 640px) {
-  /* 竖屏换用裁好的竖构图，树冠、树干、湖面都在画里，不用硬裁 */
-  .entry__photo { object-position: 50% 40%; }
-
   .entry__top { padding: 20px 18px; gap: 10px; }
   .entry__brand { gap: 7px; }
   .eb-cn { font-size: 15px; letter-spacing: 0.18em; }
