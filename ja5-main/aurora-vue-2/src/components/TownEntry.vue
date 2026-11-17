@@ -344,9 +344,9 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 7px;
   padding: 6px 13px 6px 10px;
-  border: 1px solid rgba(255, 246, 241, 0.26);
+  border: 1px solid rgba(255, 246, 241, 0.34);
   border-radius: 999px;
-  background: rgba(28, 20, 34, 0.34);
+  background: rgba(22, 15, 28, 0.46);
   backdrop-filter: blur(10px) saturate(140%);
   -webkit-backdrop-filter: blur(10px) saturate(140%);
   font-size: 11.5px;
@@ -373,7 +373,7 @@ onBeforeUnmount(() => {
   font: inherit;
   font-size: 11px;
   letter-spacing: 0.08em;
-  color: rgba(255, 238, 242, 0.55);
+  color: rgba(255, 246, 242, 0.82);
   white-space: nowrap;
   cursor: pointer;
   transition: color 0.25s;
