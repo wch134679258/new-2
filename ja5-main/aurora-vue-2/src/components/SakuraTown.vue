@@ -268,6 +268,12 @@
                 <path v-for="(pp, i) in p.parts" :key="`gz${i}`" :d="pp.d" :fill="pp.fill" />
               </g>
 
+              <!-- 樱花钟楼 -->
+              <g v-else-if="p.type === 'clockTower'" class="clocktower">
+                <path :d="p.shadow" fill="#6b4b69" opacity=".2" />
+                <path v-for="(pp, i) in p.parts" :key="`ct${i}`" :d="pp.d" :fill="pp.fill" />
+              </g>
+
               <!-- 小箱子：贩卖机 / 杂物 -->
               <g v-else-if="p.type === 'box'">
                 <path v-for="(pp, i) in p.parts" :key="`bp${i}`" :d="pp.d" :fill="pp.fill" />
@@ -442,6 +448,7 @@ import { stats, visibleStats, levelOf, title, mood, moodMeta } from '../composab
 import { motionEnabled } from '../composables/useMotion'
 import { useEconomy } from '../composables/useEconomy'
 import SiteNav from './SiteNav.vue'
+import { toast } from '../composables/useToast'
 
 defineProps({
   user: { type: Object, default: null }
@@ -451,8 +458,51 @@ const emit = defineEmits(['navigate', 'logout'])
 // 金币 / 体力：和小镇其它页面共用同一份单例，逛一圈回来数字也是对的
 const { wallet, refresh: refreshWallet, startTicker } = useEconomy()
 
-/** 场景跳转：统一走 App.vue 的 navigate 事件 */
-function go (key) { emit('navigate', key) }
+/** 场景跳转：统一走 App.vue 的 navigate 事件
+ *  钟楼是例外：它没有页面，只响一声钟 + 一条提示（音效是占位，没接音频文件） */
+let bellMsgAt = 0
+let bellCtx = null
+
+function ringBell () {
+  const now = Date.now()
+  if (now - bellMsgAt < 1800) return
+  bellMsgAt = now
+
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext
+    if (AC) {
+      if (!bellCtx) bellCtx = new AC()
+      if (bellCtx.state === 'suspended') bellCtx.resume()
+      const t0 = bellCtx.currentTime
+      // 四个泛音叠一起，指数衰减 —— 比单音更像钟
+      ;[523.25, 784, 1046.5, 1568].forEach((f, i) => {
+        const osc = bellCtx.createOscillator()
+        const gain = bellCtx.createGain()
+        osc.type = 'sine'
+        osc.frequency.value = f
+        gain.gain.setValueAtTime(0, t0)
+        gain.gain.linearRampToValueAtTime(0.15 / (i + 1.2), t0 + 0.012)
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 2.2)
+        osc.connect(gain)
+        gain.connect(bellCtx.destination)
+        osc.start(t0)
+        osc.stop(t0 + 2.3)
+      })
+    }
+  } catch (e) {
+    // 没有音频环境（或用户没交互过）就静音，只弹提示
+  }
+
+  toast.info('钟声响过，小镇慢了一拍。')
+}
+
+function go (key) {
+  if (key === 'clock') {
+    ringBell()
+    return
+  }
+  emit('navigate', key)
+}
 
 /* =========================================================
    等距（2:1 斜轴）投影 —— 整张地图的地基
@@ -462,15 +512,15 @@ function go (key) { emit('navigate', key) }
    ========================================================= */
 // 取景框：故意比小岛窄一点 —— 菱形岛的四个角全是空的，
 // 不收紧的话镇子只占屏幕中间一小块。裁掉的是上方天空与前方崖底，建筑全在框内。
-const VBX = -96
-const VBY = 196
-const VBW = 1188
-const VBH = 660
+const VBX = -150
+const VBY = 172
+const VBW = 1420
+const VBH = 790
 const HW = 33        // 半格宽
 const HH = 16.5      // 半格高（2:1）
 const OX = 500       // 格子原点在画布上的位置
 const OY = 150
-const G = 21         // 21 x 21 格（前后两翼是新街区：学校 / 车站）
+const G = 23         // map-23：21 -> 23，前方两格留给公共簇（学校 / 车站）
 
 const round1 = (n) => Math.round(n * 10) / 10
 const P = (p) => `${round1(p[0])} ${round1(p[1])}`
@@ -545,26 +595,25 @@ const plazaC = ip(PCX, PCY)
 const plaza = { cx: plazaC[0], cy: plazaC[1], rx: 88, ry: 44 }
 
 const ROADS = [
-  // 书店（左后方）
-  { pts: [[6.64, 8.14], [5.8, 7.98], [5.2, 7.88]], w: 34 },
-  // 便利店（正后方）
-  { pts: [[7.71, 6.77], [7.05, 5.4], [6.55, 4.15]], w: 34 },
-  // 家（右侧）
-  { pts: [[10.4, 8.39], [11.2, 8.34], [11.95, 8.3]], w: 34 },
-  // 健身房（左前方）
-  { pts: [[7.53, 10.13], [6.6, 11.7], [5.7, 13.25]], w: 36 },
-  // 公园（右前方）
-  { pts: [[9.39, 10.18], [9.75, 10.9], [10.1, 11.55]], w: 40 },
-  // 凉亭（右后方）
-  { pts: [[9.91, 7.23], [11.2, 5.8], [12.4, 4.6], [13.3, 4.0]], w: 30 },
-  // 学校（右翼）
-  { pts: [[10.2, 8.0], [12.4, 7.3], [14.6, 6.4], [16.6, 5.8]], w: 34 },
-  // 车站（前场，从广场下来的缓坡）
-  { pts: [[9.4, 10.3], [8.6, 12.2], [8.2, 14.3], [9.2, 15.9], [10.9, 16.4]], w: 36 },
-  // 商店街（右前方：咖啡馆 / 甜品屋门口）
-  { pts: [[10.6, 10.6], [12.4, 12.2], [14.6, 13.8], [17.4, 14.4], [19.6, 13.8]], w: 32 },
-  // 站前花店的小径
-  { pts: [[9.2, 15.9], [9.4, 17.0], [9.2, 18.0]], w: 26 }
+  // roads-v1：广场向外三条主干，各自通到一个簇
+  // A 商业街（右）
+  { pts: [[10.3, 8.5], [12.2, 8.5], [13.8, 8.45], [14.9, 8.4]], w: 48 },
+  // B 生活区（左）
+  { pts: [[7.2, 9.6], [6.4, 9.8], [5.2, 9.7], [4.2, 9.45]], w: 48 },
+  // C 公共区（前）
+  { pts: [[8.8, 10.4], [9.6, 12.6], [10.2, 15.2], [10.6, 17.4]], w: 48 },
+  // 商业街的巷道：两排房子中间那条
+  { pts: [[15.2, 4.7], [15.2, 6.6], [15.2, 8.4], [15.15, 10.5]], w: 34 },
+  // 各家门口接出来
+  { pts: [[12.92, 5.42], [13.9, 5.5], [15.2, 5.6]], w: 34 },
+  { pts: [[16.45, 5.62], [15.9, 5.6], [15.2, 5.6]], w: 34 },
+  { pts: [[13.1, 8.12], [14.2, 8.25], [15.2, 8.35]], w: 34 },
+  { pts: [[16.42, 8.32], [15.85, 8.34], [15.2, 8.35]], w: 34 },
+  { pts: [[14.72, 9.2], [15.16, 9.3]], w: 30 },
+  { pts: [[3.96, 9.02], [4.05, 9.3], [4.2, 9.45]], w: 32 },
+  { pts: [[4.5, 6.45], [5.7, 6.9], [6.7, 7.7], [7.5, 8.4]], w: 34 },
+  { pts: [[8.55, 17.65], [9.6, 17.5], [10.6, 17.4]], w: 34 },
+  { pts: [[10.0, 19.05], [10.4, 18.4], [10.6, 17.4]], w: 34 }
 ]
 const roads = ROADS.map((r) => ({
   edge: ribbon(r.pts, r.w + 9),
@@ -631,7 +680,7 @@ const ground = {
 }
 
 /* ---------- 小溪：从左前方的空地流到岛边，再顺着崖壁落下去 ---------- */
-const STREAM_PTS = [[0.1, 10.8], [0.9, 12.6], [2.2, 14.3], [3.6, 15.7], [5.2, 17.0], [6.3, 19.2], [6.9, 21.0]]
+const STREAM_PTS = [[0.1, 10.8], [0.9, 12.6], [2.2, 14.3], [3.6, 15.7], [5.2, 17.0], [6.3, 19.2], [6.9, 21.2], [7.2, 23.0]]
 const stream = {
   bank: ribbon(STREAM_PTS, 38),
   water: ribbon(STREAM_PTS, 26),
@@ -643,7 +692,7 @@ const stream = {
 
 // 瀑布：溪水出了岛就往下掉，落在半空里
 const waterfall = (() => {
-  const [fx, fy] = ip(6.9, 21.0)
+  const [fx, fy] = ip(7.2, 23.0)
   return {
     sheet: `M${P([fx - 13, fy - 1])}C${P([fx - 12, fy + 18])} ${P([fx - 9, fy + 32])} ${P([fx - 7, fy + 42])}` +
       `L${P([fx + 9, fy + 42])}C${P([fx + 11, fy + 30])} ${P([fx + 13, fy + 16])} ${P([fx + 14, fy - 1])}Z`,
@@ -673,8 +722,8 @@ const bridge = (() => {
 })()
 
 /* ---------- 公园：自己的一块草地 + 水池 ---------- */
-const parkSpec = { x: 10.0, y: 11.2, w: 3.8, d: 3.4 }
-const wC = ip(11.25, 12.35)
+const parkSpec = { x: 3.8, y: 9.8, w: 3.8, d: 3.4 }
+const wC = ip(5.05, 10.95)
 const park = {
   patch: poly([
     ip(parkSpec.x, parkSpec.y), ip(parkSpec.x + parkSpec.w, parkSpec.y),
@@ -709,7 +758,8 @@ const BUILDINGS = [
     key: 'home',
     label: '书店',
     en: 'BOOKSTORE',
-    x: 2.4, y: 5.6, w: 2.9, d: 2.2, h: 76,
+    // cluster-layout-v1：商业街西排
+    x: 12.4, y: 3.2, w: 2.9, d: 2.2, h: 76,
     wallL: '#e6c9d1', wallR: '#fbeadd',
     doorFace: 'left',
     doorU: [0.07, 0.29],
@@ -722,7 +772,8 @@ const BUILDINGS = [
     key: 'store',
     label: '便利店',
     en: 'STORE 24H',
-    x: 6.2, y: 2.0, w: 2.7, d: 2.0, h: 68,
+    // 商业街东排
+    x: 16.0, y: 3.6, w: 2.7, d: 2.0, h: 68,
     wallL: '#dfe6da', wallR: '#f8fbf2',
     doorFace: 'left',
     doorU: [0.07, 0.28],
@@ -736,7 +787,8 @@ const BUILDINGS = [
     key: 'gym',
     label: '健身房',
     en: 'GYM',
-    x: 2.6, y: 11.4, w: 3.0, d: 2.0, h: 92,
+    // 生活簇中段
+    x: 3.4, y: 7.0, w: 3.0, d: 2.0, h: 92,
     wallL: '#dcc6cf', wallR: '#f6e5e1',
     doorFace: 'left',
     doorU: [0.08, 0.28],
@@ -749,7 +801,8 @@ const BUILDINGS = [
     key: 'gamehome',
     label: '家',
     en: 'MY ROOM',
-    x: 12.0, y: 6.4, w: 2.6, d: 2.0, h: 54,
+    // 生活簇上段
+    x: 3.2, y: 4.4, w: 2.6, d: 2.0, h: 54,
     wallL: '#e3cbd3', wallR: '#fbeade',
     doorFace: 'left',
     rows: [[20, 36]],
@@ -760,7 +813,8 @@ const BUILDINGS = [
     key: 'cafe',
     label: '咖啡馆',
     en: 'CAFE HANAMI',
-    x: 14.2, y: 11.8, w: 2.1, d: 1.7, h: 62,
+    // 商业街西排中段
+    x: 12.7, y: 6.4, w: 2.1, d: 1.7, h: 62,
     wallL: '#d9c3ad', wallR: '#f7e9d7',
     doorFace: 'left',
     doorU: [0.08, 0.3],
@@ -773,7 +827,8 @@ const BUILDINGS = [
     key: 'sweet',
     label: '甜品屋',
     en: 'SWEETS',
-    x: 17.2, y: 12.4, w: 2.1, d: 1.7, h: 58,
+    // 商业街东排中段
+    x: 16.0, y: 6.6, w: 2.1, d: 1.7, h: 58,
     wallL: '#f0d5dd', wallR: '#fff4f1',
     doorFace: 'left',
     doorU: [0.1, 0.32],
@@ -786,7 +841,8 @@ const BUILDINGS = [
     key: 'flower',
     label: '花店',
     en: 'FLOWER',
-    x: 6.8, y: 16.2, w: 1.9, d: 1.7, h: 54,
+    // 商业街西排末端，右开门正对巷道
+    x: 12.8, y: 9.0, w: 1.9, d: 1.7, h: 54,
     wallL: '#dfe4d0', wallR: '#f8faee',
     doorFace: 'right',
     doorU: [0.05, 0.22],
@@ -797,7 +853,8 @@ const BUILDINGS = [
     key: 'school',
     label: '樱花学校',
     en: 'SAKURA SCHOOL',
-    x: 17.0, y: 4.2, w: 3.1, d: 2.2, h: 88,
+    // 公共簇：车站的斜后方
+    x: 7.0, y: 15.4, w: 3.1, d: 2.2, h: 88,
     wallL: '#e9d9cf', wallR: '#fdf1e4',
     doorFace: 'left',
     doorU: [0.44, 0.56],
@@ -810,7 +867,8 @@ const BUILDINGS = [
     key: 'station',
     label: '樱花车站',
     en: 'SAKURA STATION',
-    x: 11.0, y: 16.3, w: 3.6, d: 1.9, h: 66,
+    // 公共簇。y 跟铁轨（ty）绑死：月台 = y1 + 1.7，必须贴住轨道
+    x: 11.2, y: 18.1, w: 3.6, d: 1.9, h: 66,
     wallL: '#dfd3c6', wallR: '#f7ece0',
     doorFace: 'left',
     doorU: [0.42, 0.58],
@@ -2004,7 +2062,7 @@ const parkVenue = {
   wallR: 'none',
   deco: [],
   roofParts: [],
-  labelPos: ip(11.9, 13.1, 66)
+  labelPos: ip(5.7, 12.6, 66)
 }
 venues.push(parkVenue)
 
@@ -2053,42 +2111,41 @@ function buildTree (t) {
 }
 
 const TREES = [
-  // 公园里的三棵大樱花
-  { x: 11.5, y: 11.9, s: 1.12 },
-  { x: 13.1, y: 13.0, s: 0.96 },
-  { x: 10.5, y: 13.7, s: 0.9 },
-  // 书店背后的小林
-  { x: 2.0, y: 3.5, s: 0.94 },
-  { x: 0.9, y: 5.4, s: 0.82 },
-  // 便利店背后
-  { x: 5.5, y: 0.9, s: 0.84 },
-  { x: 8.7, y: 1.0, s: 0.88 },
-  // 家旁边
-  { x: 15.05, y: 7.5, s: 0.9 },
-  { x: 14.75, y: 9.7, s: 0.8 },
-  // 健身房前
-  { x: 1.3, y: 14.6, s: 0.86 },
-  { x: 6.0, y: 15.3, s: 0.8 },
-  // 凉亭一带
-  { x: 15.4, y: 5.5, s: 0.82 },
-  { x: 13.2, y: 2.0, s: 0.78 },
-  // 左角与正前方
-  { x: 0.8, y: 9.8, s: 0.82 },
-  { x: 8.2, y: 15.6, s: 0.78 },
-  // 广场前方的空地
-  { x: 6.6, y: 12.9, s: 0.84 },
-  { x: 9.1, y: 13.6, s: 0.78 },
-  // 新街区：车站一带与右前方
-  { x: 16.6, y: 14.2, s: 0.9 },
-  { x: 18.9, y: 16.1, s: 0.8 },
-  { x: 19.8, y: 12.4, s: 0.86 },
-  { x: 15.5, y: 17.8, s: 0.76 },
-  { x: 3.6, y: 18.6, s: 0.82 },
-  { x: 19.4, y: 8.4, s: 0.78 },
-  // 左侧边缘
-  { x: 0.6, y: 7.2, s: 0.86 },
-  { x: 1.4, y: 12.2, s: 0.8 },
-  { x: 17.6, y: 15.6, s: 0.82 }
+  // trees-3tier：三级树。基准 rx=31（buildTree 里的主 blob），
+  // s = 目标rx / 31。以前全是 0.76~1.12，所以看起来像撒盐。
+  // ---- 大树 rx 34~40：只放岛边缘和广场，四棵 ----
+  { x: 1.6, y: 6.6, s: 1.26 },   // rx≈39 岛左缘
+  { x: 9.6, y: 3.4, s: 1.18 },   // rx≈37 广场后上方
+  { x: 18.4, y: 13.6, s: 1.22 }, // rx≈38 岛右下缘
+  { x: 2.2, y: 15.4, s: 1.12 },  // rx≈35 岛左下缘
+
+  // ---- 中树 rx 20~26：撑起各簇之间的空隙 ----
+  { x: 4.6, y: 2.6, s: 0.78 },
+  { x: 8.4, y: 1.4, s: 0.72 },
+  { x: 11.4, y: 1.8, s: 0.8 },
+  { x: 15.4, y: 1.6, s: 0.74 },
+  { x: 19.2, y: 6.8, s: 0.8 },
+  { x: 17.6, y: 15.2, s: 0.76 },
+  { x: 10.4, y: 14.6, s: 0.72 },
+  { x: 2.6, y: 11.8, s: 0.78 },
+  { x: 13.2, y: 12.4, s: 0.82 },
+  { x: 6.0, y: 14.8, s: 0.7 },
+
+  // ---- 小树 rx 12~16：填边角，不抢视线 ----
+  { x: 3.4, y: 1.6, s: 0.46 },
+  { x: 6.6, y: 1.2, s: 0.5 },
+  { x: 10.0, y: 2.2, s: 0.44 },
+  { x: 13.4, y: 2.2, s: 0.48 },
+  { x: 17.8, y: 2.4, s: 0.42 },
+  { x: 20.0, y: 4.2, s: 0.5 },
+  { x: 19.6, y: 9.6, s: 0.46 },
+  { x: 20.2, y: 11.8, s: 0.44 },
+  { x: 16.2, y: 14.0, s: 0.48 },
+  { x: 12.0, y: 13.6, s: 0.42 },
+  { x: 1.2, y: 9.2, s: 0.5 },
+  { x: 0.9, y: 17.2, s: 0.46 },
+  { x: 5.2, y: 14.4, s: 0.44 },
+  { x: 8.0, y: 19.2, s: 0.48 }
 ]
 
 const LAMPS = [
@@ -2180,9 +2237,9 @@ const fountain = (() => {
 
 /* ---------- 车站：铁轨 + 停靠的小电车 ---------- */
 const track = (() => {
-  const ty = 20.05
+  const ty = 22.05
   const gx0 = 7.6
-  const gx1 = 21.2
+  const gx1 = 23.2
   const parts = []
   // 道床
   parts.push({
@@ -2203,7 +2260,7 @@ const track = (() => {
 })()
 
 const train = (() => {
-  const ty = 20.05
+  const ty = 22.05
   const y0 = ty - 0.26
   const d = 0.52
   const parts = []
@@ -2288,8 +2345,9 @@ const vending = (() => {
 
 // 凉亭：四根柱子 + 攒尖顶，摆在右后方那块空地上
 const gazebo = (() => {
-  const x0 = 13.8
-  const y0 = 2.9
+  // 跟着公园一起搬到生活簇
+  const x0 = 5.7
+  const y0 = 10.7
   const w = 1.5
   const d = 1.5
   const x1 = x0 + w
@@ -2314,6 +2372,120 @@ const gazebo = (() => {
   }
 })()
 
+/* =========================================================
+   樱花钟楼：广场中心偏后的地标
+   —— 三段收分（2.0 -> 1.62 -> 1.26），总高 140，
+      比学校 88 高出一大截，缩略图里一眼能看见。
+      顶层钟室两面各一个钟面，四角各一座小尖塔收顶。
+   ========================================================= */
+const clockTower = (() => {
+  const cx = 8.5
+  const cy = 7.0
+  const x0 = cx - 1.0
+  const y0 = cy - 1.0
+  const parts = []
+
+  const W1 = '#efdacc'
+  const W2 = '#f7eadf'
+  const W3 = '#fbf3ea'
+  const EAVE = '#8272a6'      // 和屋顶同一个紫
+  const EAVE_D = '#61528b'
+  const TRIM = '#c9a183'
+
+  // 段一：塔基
+  parts.push(...boxParts(x0-0.2, y0-0.2, 2.4, 2.4, 0, 70, { l: W1, r: W2, t: '#e4cbbb' }))
+  // 基座腰线
+  parts.push(...boxParts(x0 - 0.06, y0 - 0.06, 2.12, 2.12, 0, 4, { l: '#dcc3b4', r: '#ecd6c8', t: '#d3b8a8' }))
+  // 檐口一
+  parts.push(...boxParts(x0 - 0.32, y0 - 0.32, 2.64, 2.64, 70, 75, { l: EAVE, r: EAVE_D, t: '#9a8cc0' }))
+
+  // 段二
+  const x2 = x0 + 0.19
+  const y2 = y0 + 0.19
+  parts.push(...boxParts(x2, y2, 1.62, 1.62, 75, 118, { l: W1, r: W2, t: '#e4cbbb' }))
+  // 长窗
+  parts.push({ d: poly([ip(x2, y2 + 1.62, 86), ip(x2 + 0.34, y2 + 1.62, 86), ip(x2 + 0.34, y2 + 1.62, 108), ip(x2, y2 + 1.62, 108)]), fill: '#cfe0ea' })
+  parts.push({ d: poly([ip(x2, y2 + 1.62, 86), ip(x2 + 0.34, y2 + 1.62, 86), ip(x2 + 0.34, y2 + 1.62, 108), ip(x2, y2 + 1.62, 108)]), fill: 'none', stroke: TRIM, sw: 1.2 })
+  parts.push({ d: poly([ip(x2 + 1.62, y2, 86), ip(x2 + 1.62, y2 + 0.34, 86), ip(x2 + 1.62, y2 + 0.34, 108), ip(x2 + 1.62, y2, 108)]), fill: '#cfe0ea' })
+  parts.push({ d: poly([ip(x2 + 1.62, y2, 86), ip(x2 + 1.62, y2 + 0.34, 86), ip(x2 + 1.62, y2 + 0.34, 108), ip(x2 + 1.62, y2, 108)]), fill: 'none', stroke: TRIM, sw: 1.2 })
+  // 檐口二
+  parts.push(...boxParts(x2 - 0.11, y2 - 0.11, 1.84, 1.84, 118, 123, { l: EAVE, r: EAVE_D, t: '#9a8cc0' }))
+
+  // 段三：钟室
+  const x3 = x0 + 0.37
+  const y3 = y0 + 0.37
+  const w3 = 1.26
+  parts.push(...boxParts(x3, y3, w3, w3, 123, 160, { l: W3, r: '#fff8f1', t: '#f0e0d3' }))
+
+  // 钟面：钟室两面各一个（椭圆近似，等距下就是这个样子）
+  const faceZ = 141
+  const mkClock = ([fx, fy]) => [
+    { d: ellipsePath(fx, fy, 12, 12), fill: '#fffdf6' },
+    { d: ellipsePath(fx, fy, 12, 12), fill: 'none', stroke: TRIM, sw: 2.6 },
+    { d: ellipsePath(fx, fy, 9.4, 9.4), fill: 'none', stroke: 'rgba(150, 110, 100, .22)', sw: 0.9 },
+    { d: `M${P([fx, fy])}V${round1(fy - 7)}`, fill: 'none', stroke: '#6b5470', sw: 2 },
+    { d: `M${P([fx, fy])}H${round1(fx + 5.2)}`, fill: 'none', stroke: '#6b5470', sw: 1.7 },
+    { d: ellipsePath(fx, fy, 1.6, 1.6), fill: '#8d6a86' }
+  ]
+  parts.push(...mkClock(ip(x3, y3 + w3 / 2, faceZ)))
+  parts.push(...mkClock(ip(x3 + w3 / 2, y3, faceZ)))
+
+  // 钟室顶板
+  parts.push(...boxParts(x3 - 0.07, y3 - 0.07, w3 + 0.14, w3 + 0.14, 160, 163, { l: EAVE, r: EAVE_D, t: '#9a8cc0' }))
+
+  // ---- 四角小尖塔：从 121 起，到 140 ----
+  const corners = [
+    [x3 - 0.04, y3 - 0.04],
+    [x3 + w3 + 0.04, y3 - 0.04],
+    [x3 - 0.04, y3 + w3 + 0.04],
+    [x3 + w3 + 0.04, y3 + w3 + 0.04]
+  ]
+  corners.forEach(([px, py]) => {
+    parts.push(...boxParts(px - 0.075, py - 0.075, 0.15, 0.15, 163, 171, { l: W2, r: '#fff8f1', t: '#ead9cc' }))
+    parts.push({
+      d: poly([ip(px - 0.11, py - 0.11, 171), ip(px + 0.11, py - 0.11, 171), ip(px, py, 185)]),
+      fill: '#9a86b6'
+    })
+    parts.push({
+      d: poly([ip(px + 0.11, py - 0.11, 171), ip(px + 0.11, py + 0.11, 171), ip(px, py, 185)]),
+      fill: EAVE_D
+    })
+  })
+
+  // 中央小旗杆（不抬高总高，只是收个顶）
+  const apexPt = ip(cx, cy, 163)
+  parts.push({ d: `M${P(apexPt)}V${round1(apexPt[1] - 8)}`, fill: 'none', stroke: TRIM, sw: 1.6 })
+
+  return {
+    type: 'clockTower',
+    id: 'clock-tower',
+    depth: (x0 + 2.0) + (y0 + 2.0),
+    shadow: ellipsePath(...ip(cx + 0.1, cy + 0.1, 0), 62, 30),
+    parts
+  }
+})()
+
+/* 钟楼的点击热区：和建筑一样挂名牌，但走 'clock' 这个特殊 key */
+const clockVenue = {
+  type: 'venue',
+  id: 'v-clock',
+  key: 'clock',
+  label: '樱花钟楼',
+  en: 'SAKURA CLOCK',
+  depth: clockTower.depth,
+  shadow: null,
+  halo: null,
+  faces: { left: 'M0 0Z', right: 'M0 0Z' },
+  wallL: 'none',
+  wallR: 'none',
+  deco: [],
+  roofParts: [],
+  labelPos: ip(10.0, 7.4, 118)
+}
+venues.push(clockVenue)
+venues.push(clockVenue)
+
+
 /** 画家算法：x+y 越大越靠近镜头，最后画 */
 const scene = computed(() => [
   ...venues,
@@ -2326,6 +2498,7 @@ const scene = computed(() => [
   vending,
   bridge,
   gazebo,
+  clockTower,
   track,
   train,
   walker
