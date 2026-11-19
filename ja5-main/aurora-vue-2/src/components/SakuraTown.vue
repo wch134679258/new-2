@@ -114,11 +114,9 @@
           <g clip-path="url(#islandClip)">
             <path :d="ground.grid" fill="none" stroke="#ffffff" stroke-width="1" opacity=".22" />
 
-            <g fill="#a9c08c" opacity=".45">
-              <ellipse v-for="(p, i) in ground.patches" :key="`pt${i}`" :cx="p.cx" :cy="p.cy" :rx="p.rx" :ry="p.ry" />
-            </g>
+            <path v-for="(p, i) in ground.patches" :key="`pt${i}`" :d="p.d" :fill="p.fill" :opacity="p.o" />
             <path v-for="(d, i) in ground.tufts" :key="`tf${i}`" :d="d" fill="none"
-                  stroke="#9cb583" stroke-width="1.5" stroke-linecap="round" opacity=".75" />
+                  stroke="#a7bf90" stroke-width="1.4" stroke-linecap="round" opacity=".62" />
 
             <!-- 公园的草地（先铺，后面再压路和池子） -->
             <path :d="park.patch" fill="#b8cda0" opacity=".95" />
@@ -128,13 +126,48 @@
             <ellipse :cx="plaza.cx" :cy="plaza.cy" :rx="plaza.rx + 8" :ry="plaza.ry + 4"
                      fill="#c3a6a8" opacity=".6" />
             <ellipse :cx="plaza.cx" :cy="plaza.cy" :rx="plaza.rx" :ry="plaza.ry" fill="url(#plazaGrad)" />
+            <!-- 同心方砖：三圈明度递减，再切八道径向缝 -->
+            <path v-for="(r, i) in plazaRings" :key="`pr${i}`" :d="r.d" :fill="r.fill"
+                  :stroke="r.edge" stroke-width="1.4" stroke-opacity=".55" />
+            <path v-for="(d, i) in plazaSpokes" :key="`ps${i}`" :d="d" fill="none"
+                  stroke="#c8a9a6" stroke-width="1.2" opacity=".45" />
+            <!-- 樱花纹样地雕：五瓣围着喷泉 -->
+            <ellipse :cx="plaza.cx" :cy="plaza.cy" :rx="plazaSakura.frame.rx" :ry="plazaSakura.frame.ry"
+                     fill="none" stroke="#e2b3c1" stroke-width="1.6" opacity=".65" />
+            <g opacity=".92">
+              <ellipse v-for="(p, i) in plazaSakura.petals" :key="`sk${i}`"
+                       :cx="p.cx" :cy="p.cy" :rx="p.rx" :ry="p.ry"
+                       :fill="i % 2 ? '#fbe4ea' : '#e6a1b6'"
+                       stroke="#fff8f9" stroke-width="1" stroke-opacity=".8" />
+              <circle v-for="(p, i) in plazaSakura.stamens" :key="`st${i}`"
+                      :cx="p[0]" :cy="p[1]" r="1.7" fill="#fff3f6" />
+            </g>
             <ellipse :cx="plaza.cx" :cy="plaza.cy" :rx="plaza.rx - 13" :ry="plaza.ry - 6.5"
                      fill="none" stroke="#cbaba9" stroke-width="1.8" stroke-dasharray="7 9" opacity=".95" />
 
             <!-- 通往各家的小路：先铺一层土色边，再压一层亮面 -->
             <g v-for="(r, i) in ground.roads" :key="`rd${i}`">
-              <path :d="r.edge" fill="#b79aa3" opacity=".8" />
+              <path :d="r.soil" fill="#b79aa3" opacity=".55" />
+              <path :d="r.curb" fill="#f7ebe2" />
               <path :d="r.body" fill="url(#pathGrad)" />
+              <g stroke="#b79a94" stroke-width="1" opacity=".1" fill="none">
+                <path v-for="(d, j) in r.seams" :key="`sm${j}`" :d="d" />
+              </g>
+            </g>
+            <!-- 路口构件：转角石 / 井盖 / 箅子 -->
+            <g v-for="(f, i) in roadFurniture" :key="`rf${i}`">
+              <template v-if="f.kind === 'stone'">
+                <path :d="f.d" :fill="f.fill" :stroke="f.stroke || 'none'" stroke-width="1" />
+              </template>
+              <template v-else-if="f.kind === 'manhole'">
+                <path :d="f.ring" fill="#c6b6ae" stroke="#a2918a" stroke-width="1.2" />
+                <path :d="f.inner" fill="#d7c9c1" />
+                <path :d="f.bars" fill="none" stroke="#a2918a" stroke-width="1" opacity=".8" />
+              </template>
+              <template v-else>
+                <path :d="f.box" fill="#cdbfb7" stroke="#ab9a93" stroke-width="1" />
+                <path :d="f.bars" fill="none" stroke="#a3938c" stroke-width="1.1" />
+              </template>
             </g>
 
             <!-- 公园的水池 -->
@@ -146,11 +179,16 @@
 
             <!-- 小溪 -->
             <path :d="stream.bank" fill="#c1a7ae" opacity=".5" />
-            <path :d="stream.water" fill="url(#waterGrad)" />
-            <g opacity=".6">
+            <path :d="stream.shallow" fill="#cfe8ee" />
+            <path :d="stream.mid" fill="#a6cfdb" />
+            <path :d="stream.deep" fill="#7fb0c4" opacity=".9" />
+            <g opacity=".72">
               <path v-for="(d, i) in stream.ripples" :key="`sr${i}`" :d="d" fill="none"
                     stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" />
             </g>
+            <!-- 岸边卵石带 -->
+            <ellipse v-for="(p, i) in stream.pebbles" :key="`pb${i}`"
+                     :cx="p.cx" :cy="p.cy" :rx="p.rx" :ry="p.ry" :fill="p.fill" opacity=".9" />
 
             <!-- 花圃 -->
             <g v-for="(f, i) in ground.flowerBeds" :key="`fb${i}`">
@@ -166,6 +204,10 @@
             <path :d="waterfall.shine" fill="none" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" opacity=".7" />
             <ellipse v-for="(f, i) in waterfall.foam" :key="`fm${i}`" :cx="f.cx" :cy="f.cy" :rx="f.rx" :ry="f.ry"
                      fill="#eaf7fc" opacity=".45" />
+            <g class="waterfall__splash" opacity=".8">
+              <path v-for="(d, i) in waterfall.splash" :key="`sp${i}`" :d="d" fill="none"
+                    stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" />
+            </g>
           </g>
 
           <!-- 岛的边缘高光，让草地有个厚度 -->
@@ -689,6 +731,71 @@ const PCY = 8.5
 const plazaC = ip(PCX, PCY)
 const plaza = { cx: plazaC[0], cy: plazaC[1], rx: 88, ry: 44 }
 
+/* 广场地砖：同心方砖（格坐标里的正方形 = 屏幕上的菱形），三圈换明度。
+   外圈最亮做「边石」，内圈压深，中心那圈最浅，视觉上往中心收。 */
+const plazaRings = [
+  { half: 2.5, fill: '#f7e9df', edge: '#cfa9a4' },
+  { half: 1.78, fill: '#e2c7c1', edge: '#c49b98' },
+  { half: 1.08, fill: '#f3dcd4', edge: '#cb9f9c' }
+].map((r) => ({
+  d: poly([
+    ip(PCX - r.half, PCY - r.half), ip(PCX + r.half, PCY - r.half),
+    ip(PCX + r.half, PCY + r.half), ip(PCX - r.half, PCY + r.half)
+  ]),
+  fill: r.fill,
+  edge: r.edge
+}))
+// 径向砖缝：把外圈再切成八块
+const plazaSpokes = [0, 45, 90, 135].map((deg) => {
+  const a = (deg * Math.PI) / 180
+  const dx = Math.cos(a)
+  const dy = Math.sin(a)
+  return `M${P(ip(PCX - dx * 2.5, PCY - dy * 2.5))}L${P(ip(PCX + dx * 2.5, PCY + dy * 2.5))}`
+})
+
+/* 樱花纹样地雕：围在喷泉外圈的一朵五瓣
+   —— 喷泉占了正中心，雕在中心会被整个盖住，所以做成「围着喷泉的一朵花」。
+      花瓣必须有缺口（樱花和梅花的区别就在这一刀），用椭圆只会是一团粉色。 */
+function petalPath (cx, cy, len, wide, a) {
+  const ux = Math.cos(a)
+  const uy = Math.sin(a) * 0.52          // 等距里纵向压一半
+  const nx = -uy
+  const ny = ux
+  const bx = cx - ux * len * 0.45
+  const by = cy - uy * len * 0.45
+  const lidx = 0.06
+  const l = [cx + ux * len * lidx + nx * wide, cy + uy * len * lidx + ny * wide]
+  const r = [cx + ux * len * lidx - nx * wide, cy + uy * len * lidx - ny * wide]
+  const t1 = [cx + ux * len * 0.55 + nx * wide * 0.34, cy + uy * len * 0.55 + ny * wide * 0.34]
+  const t2 = [cx + ux * len * 0.55 - nx * wide * 0.34, cy + uy * len * 0.55 - ny * wide * 0.34]
+  const nt = [cx + ux * len * 0.36, cy + uy * len * 0.36]
+  return `M${P([bx, by])}Q${P(l)} ${P(t1)}L${P(nt)}L${P(t2)}Q${P(r)} ${P([bx, by])}Z`
+}
+
+const plazaSakura = (() => {
+  const { cx, cy } = plaza
+  const petals = []
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 - Math.PI / 2
+    const px = cx + Math.cos(a) * 56
+    const py = cy + Math.sin(a) * 56 * 0.52
+    petals.push({ d: petalPath(px, py, 52, 15, a) })
+    // 内层小一号的花瓣，做出「雕进去」的层次
+    petals.push({ d: petalPath(px, py - 1.6, 30, 8.4, a) })
+  }
+  const stamens = []
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2
+    stamens.push([round1(cx + Math.cos(a) * 28), round1(cy + Math.sin(a) * 28 * 0.52)])
+  }
+  return {
+    petals,
+    stamens,
+    // 外框：一道细粉圈，把地雕从地砖里「圈」出来
+    frame: { rx: 82, ry: 41 }
+  }
+})()
+
 const ROADS = [
   // roads-v1：广场向外三条主干，各自通到一个簇
   // A 商业街（右）
@@ -710,10 +817,85 @@ const ROADS = [
   { pts: [[8.55, 17.65], [9.6, 17.5], [10.6, 17.4]], w: 34 },
   { pts: [[10.0, 19.05], [10.4, 18.4], [10.6, 17.4]], w: 34 }
 ]
+/* 路面分格缝：每隔 0.8 格横着划一道浅缝。
+   —— 沿折线在「格坐标」里量距离，再转屏幕算垂线，
+      这样弯道上的缝也是顺着路面走的，不会歪。 */
+function roadSeams (pts, w, step = 0.8) {
+  const out = []
+  let carry = 0
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, ay] = pts[i]
+    const [bx, by] = pts[i + 1]
+    const len = Math.hypot(bx - ax, by - ay) || 1
+    const ux = (bx - ax) / len
+    const uy = (by - ay) / len
+    let d = carry
+    while (d < len) {
+      const gx = ax + ux * d
+      const gy = ay + uy * d
+      const [sx, sy] = ip(gx, gy)
+      const [tx, ty] = ip(gx + ux * 0.12, gy + uy * 0.12)
+      let dx = tx - sx
+      let dy = ty - sy
+      const l = Math.hypot(dx, dy) || 1
+      dx /= l
+      dy /= l
+      const hw = w / 2 - 2
+      out.push(`M${P([round1(sx - dy * hw), round1(sy + dx * hw)])}L${P([round1(sx + dy * hw), round1(sy - dx * hw)])}`)
+      d += step
+    }
+    carry = d - len
+  }
+  return out
+}
+
 const roads = ROADS.map((r) => ({
-  edge: ribbon(r.pts, r.w + 9),
-  body: ribbon(r.pts, r.w)
+  // 三层：土壤过渡带（压在草上）→ 路缘石（比路面亮，让路浮起来）→ 路面
+  soil: ribbon(r.pts, r.w + 15),
+  curb: ribbon(r.pts, r.w + 9),
+  body: ribbon(r.pts, r.w),
+  seams: roadSeams(r.pts, r.w)
 }))
+
+/* 路口构件：转角石 / 井盖 / 排水沟箅子 —— 都是贴地的，画在路面之后 */
+/** 格坐标里的方砖（地面上的一块石板） */
+function pave (gx, gy, half, fill, stroke) {
+  return {
+    d: poly([ip(gx - half, gy - half), ip(gx + half, gy - half), ip(gx + half, gy + half), ip(gx - half, gy + half)]),
+    fill,
+    stroke
+  }
+}
+const roadFurniture = (() => {
+  const out = []
+  // 转角石：三条主干汇进广场的位置各一块，路口才有「收口」
+  const corners = [[10.2, 8.16], [7.34, 9.86], [8.62, 10.56], [15.02, 8.14]]
+  corners.forEach(([gx, gy], i) => {
+    out.push({ kind: 'stone', ...pave(gx, gy, 0.2, '#e4d2c8', 'rgba(150,112,120,.5)') })
+    // 转角石上再压一小块亮面，才像「砌进去的」
+    out.push({ kind: 'stone', ...pave(gx + 0.04 * (i % 2 ? 1 : -1), gy + 0.02, 0.12, '#f0e2d8') })
+  })
+  // 井盖：两块，圆心 + 内圈 + 两道横档
+  ;[[11.7, 8.5], [9.86, 13.4]].forEach(([gx, gy]) => {
+    const [cx, cy] = ip(gx, gy)
+    out.push({
+      kind: 'manhole',
+      ring: `M${P([round1(cx - 9), round1(cy)])}a9 4.5 0 1 0 18 0a9 4.5 0 1 0 -18 0Z`,
+      inner: `M${P([round1(cx - 6), round1(cy)])}a6 3 0 1 0 12 0a6 3 0 1 0 -12 0Z`,
+      bars: `M${P([round1(cx - 6), round1(cy + 1.4)])}h12M${P([round1(cx - 5), round1(cy - 1.4)])}h10`
+    })
+  })
+  // 排水沟箅子：贴着路缘，三道横条
+  ;[[10.5, 9.0], [13.5, 8.72], [9.3, 11.9]].forEach(([gx, gy]) => {
+    const [cx, cy] = ip(gx, gy)
+    out.push({
+      kind: 'grate',
+      box: `M${P([round1(cx - 7), round1(cy)])}l7 -3.5l7 3.5l-7 3.5Z`,
+      bars: `M${P([round1(cx - 4), round1(cy - 2)])}l0 4M${P([round1(cx), round1(cy - 3.2)])}l0 6.4M${P([round1(cx + 4), round1(cy - 2)])}l0 4`
+    })
+  })
+  return out
+})()
 
 // 花圃：沿路撒几簇，给地面加点颜色
 const flowerColors = ['#ffd4e5', '#e4c6f0', '#fff1db', '#d5e3cf', '#ffc0b0']
@@ -739,50 +921,160 @@ const flowerBeds = BED_SPECS.map(([gx, gy], i) => {
   return { cx, cy, rx, ry, points }
 })
 
-// 草地上深浅不一的斑块，避免一大片死平的颜色
-const PATCH_SPECS = [
-  [3.0, 3.2, 1.6], [6.6, 5.2, 1.3], [11.4, 4.4, 1.4], [13.6, 8.4, 1.1],
-  [4.2, 12.8, 1.3], [7.8, 11.0, 1.0], [14.4, 6.0, 1.0], [1.0, 9.6, 0.9],
-  [9.2, 6.6, 1.2], [15.4, 10.4, 0.9], [5.8, 14.8, 1.0], [2.4, 16.0, 0.8]
+/* =========================================================
+   草地：三层明度斑块
+   —— 斑块要「大而淡」才起作用。原来的 0.8~1.6 格半径在缩略图里
+      只是一堆噪点，看着还是一块糊色；半径 3~6 格 + opacity .03~.05
+      才能把地面压出起伏。边缘用 12 边形 + 正弦抖动，不是椭圆。
+   ========================================================= */
+const PATCH_TONES = [
+  { fill: '#9fb87f', o: 0.05 },   // 层一：暗块（低洼/背光）
+  { fill: '#eaf2d4', o: 0.042 },  // 层二：亮块（高处受光）
+  { fill: '#d6d9a2', o: 0.034 }   // 层三：暖块（偏黄的枯草）
 ]
-const patches = PATCH_SPECS.map(([gx, gy, r]) => {
+const PATCH_SPECS = [
+  // [gx, gy, r, 层]
+  [4.0, 4.6, 5.6, 0], [10.6, 3.4, 5.0, 0], [16.4, 6.2, 4.6, 0],
+  [2.6, 11.4, 5.2, 0], [8.2, 12.8, 6.0, 0], [14.2, 12.2, 5.0, 0],
+  [18.0, 10.2, 4.0, 0], [6.2, 17.4, 4.6, 0], [12.4, 18.0, 4.2, 0],
+  [7.0, 7.6, 4.4, 1], [13.0, 5.0, 4.8, 1], [17.6, 3.4, 4.0, 1],
+  [1.8, 7.8, 4.2, 1], [3.6, 15.0, 4.8, 1], [16.6, 15.4, 4.4, 1],
+  [9.4, 10.0, 3.6, 2], [11.8, 9.0, 3.2, 2], [5.0, 9.8, 3.4, 2],
+  [15.2, 8.2, 3.0, 2], [8.0, 15.6, 3.8, 2]
+]
+/** 不规则斑块：12 个顶点，半径按正弦抖动，边缘才不像椭圆 */
+function blobPath (cx, cy, rx, ry, seed) {
+  const pts = []
+  const nv = 12
+  for (let i = 0; i < nv; i++) {
+    const a = (i / nv) * Math.PI * 2
+    const k = 0.76 + ((Math.sin(seed * 7.13 + i * 2.71) + 1) / 2) * 0.38
+    pts.push([round1(cx + Math.cos(a) * rx * k), round1(cy + Math.sin(a) * ry * k)])
+  }
+  return poly(pts)
+}
+const patches = PATCH_SPECS.map(([gx, gy, r, layer], i) => {
   const [cx, cy] = ip(gx, gy)
-  return { cx, cy, rx: r * 46, ry: r * 23 }
+  const tone = PATCH_TONES[layer]
+  return {
+    d: blobPath(cx, cy, r * 44, r * 22, i + 1),
+    fill: tone.fill,
+    o: tone.o
+  }
 })
 
-// 草丛：三根短线，插在空地上，比纯色草地耐看
-const TUFT_SPECS = [
-  [1.2, 1.8], [3.0, 2.2], [5.8, 4.6], [10.2, 3.0], [14.2, 2.6], [0.8, 5.6],
-  [0.7, 8.6], [2.6, 7.4], [5.2, 9.4], [6.6, 12.5], [9.0, 7.5], [12.9, 6.6],
-  [12.6, 8.6], [4.4, 13.4], [12.8, 11.4], [7.6, 3.9], [3.6, 12.0], [11.2, 5.6],
-  [0.5, 16.2], [2.2, 9.4], [16.2, 2.2], [9.4, 15.4], [13.6, 11.0], [6.2, 16.2],
-  [15.2, 3.4], [4.6, 6.4]
-]
-const tufts = TUFT_SPECS.map(([gx, gy], i) => {
+/* =========================================================
+   草丛：成簇，不撒盐
+   —— 原来 26 处均匀铺在空格上，缩略图里就是噪点。
+      真实的草只长在「有东西挡着」的地方：树根、墙角、石缝、路缘、溪岸。
+      这几个锚点全部从已有数据推出来，改建筑/挪树不会留下孤儿草。
+   ========================================================= */
+/** 屏幕坐标处生一簇草（3~5 株），返回若干条三笔的草茎路径 */
+function tuftAt (bx, by, count, seed) {
+  const out = []
+  for (let i = 0; i < count; i++) {
+    const a = (i / count) * Math.PI * 2 + seed * 1.7
+    const rr = 0.1 + ((i * 37 + seed * 13) % 10) / 30
+    const x = bx + Math.cos(a) * rr * 26
+    const y = by + Math.sin(a) * rr * 12
+    const k = 0.6 + ((i * 17 + seed * 7) % 5) * 0.075
+    out.push(
+      `M${P([x - 4 * k, y])}q${-1} ${round1(-5 * k)} ${round1(-3 * k)} ${round1(-7 * k)}` +
+      `M${P([x, y])}q${0} ${round1(-6 * k)} ${round1(1 * k)} ${round1(-9 * k)}` +
+      `M${P([x + 4 * k, y])}q${round1(2 * k)} ${round1(-4 * k)} ${round1(4 * k)} ${round1(-6 * k)}`
+    )
+  }
+  return out
+}
+/** 格坐标处的草簇 */
+function tuftCluster (gx, gy, count, seed) {
   const [bx, by] = ip(gx, gy)
-  const k = 0.8 + (i % 3) * 0.18
-  return `M${P([bx - 4 * k, by])}q${-1} ${-5 * k} ${-3 * k} ${-7 * k}` +
-    `M${P([bx, by])}q${0} ${-6 * k} ${1 * k} ${-9 * k}` +
-    `M${P([bx + 4 * k, by])}q${2 * k} ${-4 * k} ${4 * k} ${-6 * k}`
-})
+  return tuftAt(bx, by, count, seed)
+}
+/** 沿折线按步长取点，附带屏幕法线，用来贴路缘草 */
+function sampleAlong (pts, step) {
+  const out = []
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, ay] = ip(pts[i][0], pts[i][1])
+    const [bx, by] = ip(pts[i + 1][0], pts[i + 1][1])
+    const len = Math.hypot(bx - ax, by - ay)
+    const nx = -(by - ay) / (len || 1)
+    const ny = (bx - ax) / (len || 1)
+    const cnt = Math.max(1, Math.round(len / step))
+    for (let k = 1; k < cnt; k++) {
+      const t = k / cnt
+      out.push([ax + (bx - ax) * t, ay + (by - ay) * t, nx, ny])
+    }
+  }
+  return out
+}
+function buildTuftClusters () {
+  const out = []
+  // 1) 树根：每棵树根部贴一簇
+  TREES.forEach((t, i) => out.push(...tuftCluster(t.x + 0.2, t.y + 0.26, 3 + (i % 2), i + 1)))
+  // 2) 石缝：石头旁边挤出来的那丛
+  ROCKS.forEach((r, i) => out.push(...tuftCluster(r.x + 0.14, r.y + 0.18, 3, i + 21)))
+  // 3) 墙角：每栋楼的前沿两个角各一簇
+  BUILDINGS.forEach((b, i) => {
+    out.push(...tuftCluster(b.x - 0.2, b.y + b.d + 0.16, 3, i + 5))
+    if (i % 2 === 0) out.push(...tuftCluster(b.x + b.w + 0.18, b.y + b.d + 0.12, 4, i + 17))
+  })
+  // 4) 路缘：沿四条主路两侧，每 2.2 格一簇，左右交替
+  ROADS.slice(0, 4).forEach((r, i) => {
+    sampleAlong(r.pts, 3.2).forEach(([x, y, nx, ny], j) => {
+      const sgn = (j + i) % 2 ? 1 : -1
+      const off = r.w / 2 + 16
+      out.push(...tuftAt(x + nx * off * sgn, y + ny * off * sgn, 3, i * 13 + j))
+    })
+  })
+  // 5) 溪岸：两岸各贴几簇
+  sampleAlong(STREAM_PTS, 3.8).forEach(([x, y, nx, ny], j) => {
+    const sgn = j % 2 ? 1 : -1
+    out.push(...tuftAt(x + nx * 22 * sgn, y + ny * 10 * sgn, 3 + (j % 2), 40 + j))
+  })
+  return out
+}
 
 const ground = {
   grid: gridLines.join(''),
   roads,
   flowerBeds,
   patches,
-  tufts
+  // 草簇依赖 TREES / ROCKS / BUILDINGS，等它们都定义好再挂（见 const tufts）
+  tufts: []
 }
 
 /* ---------- 小溪：从左前方的空地流到岛边，再顺着崖壁落下去 ---------- */
 const STREAM_PTS = [[0.1, 10.8], [0.9, 12.6], [2.2, 14.3], [3.6, 15.7], [5.2, 17.0], [6.3, 19.2], [6.9, 21.2], [7.2, 23.0]]
 const stream = {
   bank: ribbon(STREAM_PTS, 38),
-  water: ribbon(STREAM_PTS, 26),
-  ripples: [0, 1, 2].map((i) => {
-    const [x, y] = ip(0.8 + i * 1.3, 12.4 + i * 1.3)
-    return `M${P([x - 8, y + 2])}q8 -5 16 0`
-  })
+  // 水深三级：外侧浅滩 → 中间 → 中心深槽
+  shallow: ribbon(STREAM_PTS, 26),
+  mid: ribbon(STREAM_PTS, 18),
+  deep: ribbon(STREAM_PTS, 9),
+  // 五条白色波纹，顺着水流方向摆
+  ripples: [0, 1, 2, 3, 4].map((i) => {
+    const [x, y] = ip(0.55 + i * 1.15, 12.1 + i * 1.5)
+    const w = 9 + (i % 2) * 4
+    return `M${P([round1(x - w), round1(y + 2)])}q${w} -5 ${w * 2} 0`
+  }),
+  // 岸边卵石：两种灰、五种大小，交替落在两岸
+  pebbles: (() => {
+    const out = []
+    sampleAlong(STREAM_PTS, 0.72).forEach(([x, y, nx, ny], j) => {
+      const sgn = j % 2 ? 1 : -1
+      const off = 19 + ((j * 7) % 9)
+      const rx = 2.6 + ((j * 5) % 4) * 1.1
+      out.push({
+        cx: round1(x + nx * off * sgn),
+        cy: round1(y + ny * off * sgn * 0.5),
+        rx: round1(rx),
+        ry: round1(rx * 0.55),
+        fill: j % 2 ? '#c9c2b8' : '#b3aaa2'
+      })
+    })
+    return out
+  })()
 }
 
 // 瀑布：溪水出了岛就往下掉，落在半空里
@@ -796,7 +1088,19 @@ const waterfall = (() => {
       { cx: round1(fx + 2), cy: round1(fy + 47), rx: 19, ry: 7 },
       { cx: round1(fx - 11), cy: round1(fy + 42), rx: 10, ry: 4.5 },
       { cx: round1(fx + 15), cy: round1(fy + 40), rx: 9, ry: 4 }
-    ]
+    ],
+    // 落点溅射：从水帘底向外散射的细线，长短不一
+    splash: (() => {
+      const out = []
+      for (let i = 0; i < 7; i++) {
+        const a = -0.8 + i * 0.26
+        const r0 = 6 + (i % 3) * 2
+        const r1 = r0 + 5 + (i % 4) * 2
+        out.push(`M${P([round1(fx + Math.cos(a) * r0), round1(fy + 44 + Math.sin(a) * r0 * 0.4)])}` +
+          `L${P([round1(fx + Math.cos(a) * r1), round1(fy + 44 + Math.sin(a) * r1 * 0.4)])}`)
+      }
+      return out
+    })()
   }
 })()
 
@@ -2324,6 +2628,10 @@ const ROCKS = [
     lit: `M${P([bx - 6, by - 9])}L${P([bx + 4, by - 10])}L${P([bx + 2, by - 4])}L${P([bx - 5, by - 3])}Z`
   }
 })
+
+// 草簇要等 TREES / ROCKS / BUILDINGS 都在了才能算（锚点从它们身上取）
+const tufts = buildTuftClusters()
+ground.tufts = tufts
 
 // 喷泉：广场中心的地标
 const fountain = (() => {
