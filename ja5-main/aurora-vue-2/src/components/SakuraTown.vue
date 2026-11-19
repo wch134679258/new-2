@@ -75,9 +75,6 @@
               <stop offset="0" stop-color="#fff5da" stop-opacity=".85" />
               <stop offset="1" stop-color="#fff5da" stop-opacity="0" />
             </radialGradient>
-            <filter id="blurSm" x="-30%" y="-30%" width="160%" height="160%">
-              <feGaussianBlur stdDeviation="5" />
-            </filter>
             <clipPath id="islandClip">
               <path :d="island.grass" />
             </clipPath>
@@ -192,11 +189,19 @@
                 @click="go(p.key)"
                 @keyup.enter="go(p.key)"
               >
-                <path class="venue__shadow" :d="p.shadow" fill="#6b4b69" opacity=".2" filter="url(#blurSm)" />
+                <path class="venue__shadow" :d="p.shadow" fill="#6b4b69" opacity=".16" />
                 <path class="venue__halo" :d="p.halo" fill="#fff6fb" opacity=".0" />
                 <g class="venue__body">
                   <path :d="p.faces.left" :fill="p.wallL" />
                   <path :d="p.faces.right" :fill="p.wallR" />
+                  <!-- 接触阴影：压在家具和门之前，被门口的东西自然盖住 -->
+                  <path
+                    v-for="(ad, i) in p.ao"
+                    :key="`ao${i}`"
+                    :d="ad.d"
+                    :fill="ad.fill"
+                    :opacity="ad.opacity"
+                  />
                   <path
                     v-for="(dc, i) in p.deco"
                     :key="`dc${i}`"
@@ -213,7 +218,7 @@
               <!-- 樱花树：点一下会落一阵花雨 -->
               <g v-else-if="p.type === 'tree'" class="tree" @click="burstPetals" role="button" tabindex="0"
                  aria-label="摇一摇樱花树" @keyup.enter="burstPetals">
-                <ellipse :cx="p.bx + 6 * p.s" :cy="p.by" :rx="30 * p.s" :ry="12 * p.s" fill="#6b4b69" opacity=".2" />
+                <path :d="p.shadow" fill="#6b4b69" opacity=".15" />
                 <path :d="p.trunk" fill="#6f4e59" />
                 <path :d="p.branch" fill="none" stroke="#6f4e59" stroke-width="2.6" stroke-linecap="round" />
                 <ellipse
@@ -228,7 +233,7 @@
 
               <!-- 路灯 -->
               <g v-else-if="p.type === 'lamp'">
-                <ellipse :cx="p.bx + 4" :cy="p.by" rx="13" ry="5" fill="#6b4b69" opacity=".16" />
+                <path :d="p.shadow" fill="#6b4b69" opacity=".16" />
                 <path :d="p.pole" fill="none" stroke="#6b4b62" stroke-width="3.2" stroke-linecap="round" />
                 <circle :cx="p.bx" :cy="p.by - 48" r="16" fill="url(#lampGlow)" />
                 <path :d="p.head" fill="#ffe8b4" stroke="#6b4b62" stroke-width="1.8" />
@@ -237,7 +242,7 @@
 
               <!-- 长椅 -->
               <g v-else-if="p.type === 'bench'">
-                <ellipse :cx="p.bx + 3" :cy="p.by" rx="18" ry="7" fill="#6b4b69" opacity=".16" />
+                <path :d="p.shadow" fill="#6b4b69" opacity=".16" />
                 <path :d="p.seat" fill="#d5a888" />
                 <path :d="p.back" fill="#c1937a" />
                 <path :d="p.legs" fill="none" stroke="#8a6a5a" stroke-width="2.6" stroke-linecap="round" />
@@ -245,7 +250,7 @@
 
               <!-- 灌木 -->
               <g v-else-if="p.type === 'bush'">
-                <ellipse :cx="p.bx + 3" :cy="p.by" rx="15" ry="6" fill="#6b4b69" opacity=".14" />
+                <path :d="p.shadow" fill="#6b4b69" opacity=".14" />
                 <ellipse :cx="p.bx - 7" :cy="p.by - 7" rx="11" ry="8" fill="#a3bb8c" />
                 <ellipse :cx="p.bx + 8" :cy="p.by - 8" rx="10" ry="8" fill="#b5c9a0" />
                 <ellipse :cx="p.bx" :cy="p.by - 14" rx="10" ry="8" fill="#adc496" />
@@ -264,13 +269,13 @@
 
               <!-- 凉亭 -->
               <g v-else-if="p.type === 'gazebo'">
-                <path :d="p.shadow" fill="#6b4b69" opacity=".18" />
+                <path :d="p.shadow" fill="#6b4b69" opacity=".16" />
                 <path v-for="(pp, i) in p.parts" :key="`gz${i}`" :d="pp.d" :fill="pp.fill" />
               </g>
 
               <!-- 樱花钟楼 -->
               <g v-else-if="p.type === 'clockTower'" class="clocktower">
-                <path :d="p.shadow" fill="#6b4b69" opacity=".2" />
+                <path :d="p.shadow" fill="#6b4b69" opacity=".16" />
                 <path v-for="(pp, i) in p.parts" :key="`ct${i}`" :d="pp.d" :fill="pp.fill" />
               </g>
 
@@ -300,7 +305,7 @@
 
               <!-- 广场喷泉 -->
               <g v-else-if="p.type === 'fountain'" class="fountain">
-                <ellipse :cx="p.bx + 4" :cy="p.by + 2" rx="40" ry="19" fill="#6b4b69" opacity=".14" />
+                <path :d="p.shadow" fill="#6b4b69" opacity=".15" />
                 <path :d="p.basinOuter" fill="#dcc6c4" />
                 <path :d="p.water" fill="url(#waterGrad)" />
                 <path :d="p.basinInner" fill="none" stroke="#f4e3de" stroke-width="2" opacity=".8" />
@@ -316,7 +321,7 @@
 
               <!-- 公园里站着的小人：纯爷们不用建模，几笔剪影就够 -->
               <g v-else-if="p.type === 'walker'" class="walker">
-                <ellipse :cx="p.bx + 2" :cy="p.by" rx="11" ry="5" fill="#6b4b69" opacity=".2" />
+                <ellipse :cx="p.bx + 5" :cy="p.by + 2.4" rx="10" ry="4.6" fill="#6b4b69" opacity=".18" />
                 <ellipse :cx="p.bx" :cy="p.by" rx="15" ry="6" fill="none" stroke="#fff4f9" stroke-width="1.6"
                          class="walker__ring" />
                 <path :d="p.body" fill="#e2919f" />
@@ -529,6 +534,96 @@ function ip (x, y, z = 0) {
   return [OX + (x - y) * HW, OY + (x + y) * HH - z]
 }
 const poly = (pts) => 'M' + pts.map(P).join('L') + 'Z'
+
+/* =========================================================
+   光照：一处定方向，全图共用
+   —— 太阳在左后方（-x, -y），影子一律往右下（+x）铺。
+      抬得越高，影子越长；投影全部从 ip() 出发，改 G / HW 也不会错位。
+   ========================================================= */
+const LIGHT_DX = 0.55   // 每单位高度的水平位移（px）
+const LIGHT_DY = 0.28   // 每单位高度的垂直位移（px），圆脚物体直接按屏幕算
+
+/**
+ * 建筑投影：底面四角 + 顶面四角落地，收成凸包。
+ * 平移量 = 高度 × 光照向量，所以矮楼短影、高楼长影，
+ * 侧面还会拖出一段斜边，读起来才是「立在地上」而不是「浮在纸上」。
+ */
+function shadowOf (x0, y0, x1, y1, h) {
+  // 只沿 +x 推：屏幕上 1 格 = (HW, HH)，所以位移正好是 (LIGHT_DX·h, 0.5·LIGHT_DX·h)。
+  // 之前 +x 和 +y 各推一份，两股在屏幕上互相抵消，影子变成「偏正下方」——
+  // 世界坐标里 +y 是往左下走，这点最容易写错。
+  const dx = (LIGHT_DX * h) / HW
+  const base = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
+  const pts = []
+  for (const [x, y] of base) {
+    pts.push(ip(x, y, 0))
+    pts.push(ip(x + dx, y, 0))
+  }
+  return poly(hull(pts))
+}
+
+/** 屏幕坐标的凸包（单调链），8 个点足够，别上正经算法库 */
+function hull (pts) {
+  const p = pts.slice().sort((a, b) => (a[0] - b[0]) || (a[1] - b[1]))
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+  const lower = []
+  for (const q of p) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], q) <= 0) lower.pop()
+    lower.push(q)
+  }
+  const upper = []
+  for (let i = p.length - 1; i >= 0; i--) {
+    const q = p[i]
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], q) <= 0) upper.pop()
+    upper.push(q)
+  }
+  lower.pop()
+  upper.pop()
+  return lower.concat(upper)
+}
+
+/** 圆脚物体（树、喷泉、路灯）的椭圆投影：同样往右下偏，长度跟高度走 */
+function discShadow (x, y, rx, ry, h) {
+  const [cx, cy] = ip(x, y)
+  const k = 0.6                    // 椭圆中心只取一半偏移，让影子仍盖住脚下
+  return ellipsePath(
+    cx + LIGHT_DX * h * k,
+    cy + LIGHT_DY * h * k,
+    rx, ry
+  )
+}
+
+/** 接触阴影：沿两个可见墙脚各压一条暗带，把楼「按」在地上 */
+function contactAO (x0, y0, x1, y1) {
+  const ins = 0.07       // 内缩约 2px（HW = 33）
+  const zTop = 7          // 暗带高度
+  const d1 = '#4c3448'
+  return [
+    // 正面（y = y1）
+    { d: poly([ip(x0 + ins, y1, 0), ip(x1 - ins, y1, 0), ip(x1 - ins, y1, zTop), ip(x0 + ins, y1, zTop)]), fill: d1, opacity: 0.22 },
+    // 右面（x = x1）
+    { d: poly([ip(x1, y0 + ins, 0), ip(x1, y1 - ins, 0), ip(x1, y1 - ins, zTop), ip(x1, y0 + ins, zTop)]), fill: d1, opacity: 0.22 },
+    // 贴地那一线再压一道，接缝处才有「暗线」
+    { d: poly([ip(x0 + ins, y1, 0), ip(x1 - ins, y1, 0), ip(x1 - ins, y1, 2), ip(x0 + ins, y1, 2)]), fill: d1, opacity: 0.3 },
+    { d: poly([ip(x1, y0 + ins, 0), ip(x1, y1 - ins, 0), ip(x1, y1 - ins, 2), ip(x1, y0 + ins, 2)]), fill: d1, opacity: 0.3 }
+  ]
+}
+
+/* ---------- 明暗工具：一处算，30 个色值不用手改 ---------- */
+/** amt > 0 朝白色插值（提亮），amt < 0 朝黑色插值（压暗） */
+function shadeHex (hex, amt) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''))
+  if (!m) return hex
+  const v = parseInt(m[1], 16)
+  const ch = [(v >> 16) & 255, (v >> 8) & 255, v & 255]
+  const out = ch.map((c) => {
+    const r = amt >= 0 ? c + (255 - c) * amt : c * (1 + amt)
+    return Math.max(0, Math.min(255, Math.round(r)))
+  })
+  return '#' + out.map((c) => c.toString(16).padStart(2, '0')).join('')
+}
+const lighten = (hex, amt) => shadeHex(hex, Math.abs(amt))
+const darken = (hex, amt) => shadeHex(hex, -Math.abs(amt))
 /** 屏幕坐标系里的椭圆（挂钟、配重片这类圆件用） */
 function ellipsePath (cx, cy, rx, ry) {
   return `M${round1(cx - rx)} ${round1(cy)}a${round1(rx)} ${round1(ry)} 0 1 0 ${round1(rx * 2)} 0a${round1(rx)} ${round1(ry)} 0 1 0 ${round1(-rx * 2)} 0Z`
@@ -1505,9 +1600,8 @@ function buildVenue (v) {
     label: v.label,
     en: v.en,
     depth: x1 + y1,
-    shadow: poly([
-      ip(x0 + 0.1, y0 + 0.1), ip(x1 + 0.7, y0 + 0.1), ip(x1 + 0.7, y1 + 0.7), ip(x0 + 0.1, y1 + 0.7)
-    ]),
+    // 投影长度 = 楼高，矮楼和高楼终于不是一个影子了
+    shadow: shadowOf(x0, y0, x1, y1, h),
     halo: poly([
       ip(x0 - 0.35, y0 - 0.35), ip(x1 + 0.35, y0 - 0.35), ip(x1 + 0.35, y1 + 0.35), ip(x0 - 0.35, y1 + 0.35)
     ]),
@@ -1515,8 +1609,10 @@ function buildVenue (v) {
       left: poly([ip(x0, y1, 0), ip(x1, y1, 0), ip(x1, y1, h), ip(x0, y1, h)]),
       right: poly([ip(x1, y0, 0), ip(x1, y1, 0), ip(x1, y1, h), ip(x1, y0, h)])
     },
-    wallL: v.wallL,
-    wallR: v.wallR,
+    // 立面拉开明暗：右面受光提亮 6%，左面背光压暗 10%，体积才出得来
+    wallL: darken(v.wallL, 0.10),
+    wallR: lighten(v.wallR, 0.06),
+    ao: contactAO(x0, y0, x1, y1),
     deco: deco.concat(yardProps(v)),
     roofParts,
     labelPos: ip((x0 + x1) / 2, (y0 + y1) / 2, h + (v.labelLift != null ? v.labelLift : (v.pitched ? 48 : 24)))
@@ -2060,6 +2156,7 @@ const parkVenue = {
   faces: { left: 'M0 0Z', right: 'M0 0Z' },
   wallL: 'none',
   wallR: 'none',
+  ao: [],
   deco: [],
   roofParts: [],
   labelPos: ip(5.7, 12.6, 66)
@@ -2100,6 +2197,9 @@ function buildTree (t) {
     type: 'tree',
     id: `t-${t.x}-${t.y}`,
     depth: t.x + t.y,
+    // 树冠重心离地约 th + 8，投影沿同一个光照向量铺出去：
+    // 大树影子长、小树影子短，和建筑是一套规则
+    shadow: discShadow(t.x, t.y, 31 * s, 12.5 * s, th + 8 * s),
     bx, by, s,
     trunk: `M${P([bx - 3.6 * s, by])}Q${P([bx - 2.2 * s, by - th * 0.6])} ${P([bx - 1 * s, top])}` +
       `L${P([bx + 1 * s, top])}Q${P([bx + 2.6 * s, by - th * 0.55])} ${P([bx + 3.6 * s, by])}Z`,
@@ -2165,6 +2265,7 @@ const LAMPS = [
     id: `lamp${i}`,
     depth: l.x + l.y,
     bx, by,
+    shadow: discShadow(l.x, l.y, 13, 5, 34),
     pole: `M${P([bx, by])}V${round1(by - 44)}`,
     head: `M${P([bx - 6, by - 46])}h12l-2-9h-8Z`,
     cap: `M${P([bx - 8, by - 56])}h16`
@@ -2184,6 +2285,7 @@ const BENCHES = [
     id: `bench${i}`,
     depth: b.x + b.y,
     bx, by,
+    shadow: discShadow(b.x, b.y, 18, 7, 20),
     seat: poly([ip(b.x - 0.34, b.y - 0.12, 8), ip(b.x + 0.34, b.y - 0.12, 8), ip(b.x + 0.34, b.y + 0.12, 8), ip(b.x - 0.34, b.y + 0.12, 8)]),
     back: poly([ip(b.x - 0.34, b.y + 0.12, 8), ip(b.x + 0.34, b.y + 0.12, 8), ip(b.x + 0.34, b.y + 0.12, 18), ip(b.x - 0.34, b.y + 0.12, 18)]),
     legs: `M${P([bx - 14, round1(by - 4)])}V${round1(by + 4)}M${P([bx + 10, round1(by - 8)])}V${round1(by)}`
@@ -2200,7 +2302,13 @@ const BUSHES = [
   { x: 0.4, y: 8.6 }, { x: 2.0, y: 6.4 }, { x: 19.6, y: 15.4 }, { x: 16.2, y: 10.6 }
 ].map((b, i) => {
   const [bx, by] = ip(b.x, b.y)
-  return { type: 'bush', id: `bush${i}`, depth: b.x + b.y, bx, by }
+  return {
+    type: 'bush',
+    id: `bush${i}`,
+    depth: b.x + b.y,
+    bx, by,
+    shadow: discShadow(b.x, b.y, 15, 6, 16)
+  }
 })
 
 const ROCKS = [
@@ -2225,6 +2333,7 @@ const fountain = (() => {
     id: 'fountain',
     depth: PCX + PCY,
     bx, by,
+    shadow: discShadow(PCX, PCY, 40, 19, 34),
     basinOuter: `M${P([bx - 44, by])}a44 22 0 1 0 88 0a44 22 0 1 0 -88 0Z`,
     water: `M${P([bx - 33, by])}a33 16.5 0 1 0 66 0a33 16.5 0 1 0 -66 0Z`,
     basinInner: `M${P([bx - 37, by])}a37 18.5 0 1 0 74 0a37 18.5 0 1 0 -74 0Z`,
@@ -2368,7 +2477,7 @@ const gazebo = (() => {
     id: 'gazebo',
     depth: x1 + y1,
     parts,
-    shadow: poly([ip(x0 - 0.1, y0 - 0.1), ip(x1 + 0.5, y0 - 0.1), ip(x1 + 0.5, y1 + 0.5), ip(x0 - 0.1, y1 + 0.5)])
+    shadow: shadowOf(x0 - 0.1, y0 - 0.1, x1 + 0.1, y1 + 0.1, postH + 26)
   }
 })()
 
@@ -2456,11 +2565,16 @@ const clockTower = (() => {
   const apexPt = ip(cx, cy, 163)
   parts.push({ d: `M${P(apexPt)}V${round1(apexPt[1] - 8)}`, fill: 'none', stroke: TRIM, sw: 1.6 })
 
+
+  // 塔基接触阴影：钟楼不走 buildVenue，单独补一遍，别让它像个贴片立在广场上
+  parts.push(...contactAO(x0 - 0.2, y0 - 0.2, x0 + 2.2, y0 + 2.2))
+
   return {
     type: 'clockTower',
     id: 'clock-tower',
     depth: (x0 + 2.0) + (y0 + 2.0),
-    shadow: ellipsePath(...ip(cx + 0.1, cy + 0.1, 0), 62, 30),
+    // 塔高 185，影子按这个高度铺出去，是全图最长的一条
+    shadow: shadowOf(x0 - 0.2, y0 - 0.2, x0 + 2.2, y0 + 2.2, 185),
     parts
   }
 })()
@@ -2478,11 +2592,11 @@ const clockVenue = {
   faces: { left: 'M0 0Z', right: 'M0 0Z' },
   wallL: 'none',
   wallR: 'none',
+  ao: [],
   deco: [],
   roofParts: [],
   labelPos: ip(10.0, 7.4, 118)
 }
-venues.push(clockVenue)
 venues.push(clockVenue)
 
 
@@ -2887,7 +3001,8 @@ onBeforeUnmount(() => {
 }
 .venue.is-hot .venue__body {
   transform: translateY(-7px) scale(1.012);
-  filter: drop-shadow(0 12px 14px rgba(86, 48, 78, 0.24));
+  /* 悬停抬起时的投影也要跟光照同向（原来是 0/12 的正下方） */
+  filter: drop-shadow(9px 6px 12px rgba(86, 48, 78, 0.26));
 }
 .venue__halo {
   transition: opacity 0.35s var(--ease);
