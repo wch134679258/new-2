@@ -669,6 +669,153 @@ function floorCushion (s) {
 
 function r2 (n) { return Math.round(n * 10) / 10 }
 
+
+/* ============================================================
+   第三批：小物
+   —— 房间的「生活感」全靠这些：书堆、杯子、纸箱、垃圾桶、吊灯、一只猫。
+   尺寸都很小，但少了它们，房间就像刚交房的样板间。
+   ============================================================ */
+
+/** 地上一摞书（可横可竖，斜着码才有真人的随手感） */
+function stackBooks (s) {
+  const { x, y, n = 4 } = s
+  const parts = []
+  const tones = ['#c9556f', '#e0a05c', '#7f9fc9', '#8fb98b', '#b189c4']
+  for (let i = 0; i < n; i++) {
+    const off = i * 0.035
+    const z0 = i * 3.2
+    parts.push(...box(x + off, y + off * 0.6, 0.42 - i * 0.02, 0.3, z0, z0 + 3, {
+      l: tones[i % tones.length],
+      r: tones[(i + 2) % tones.length],
+      t: '#fffaf2'
+    }))
+  }
+  return parts
+}
+
+/** 桌上的一摞书 + 一个杯子 */
+function deskBooks (s) {
+  const { x, y, z = 14 } = s
+  const parts = []
+  parts.push(...box(x, y, 0.34, 0.24, z, z + 2.6, { l: '#c9556f', r: '#b3455e', t: '#fff8ef' }))
+  parts.push(...box(x + 0.02, y + 0.02, 0.32, 0.22, z + 2.6, z + 5.0, { l: '#7f9fc9', r: '#6b88b2', t: '#f4f8fd' }))
+  parts.push(...box(x + 0.04, y + 0.04, 0.3, 0.2, z + 5.0, z + 7.0, { l: '#e0a05c', r: '#c98b4a', t: '#fffaf0' }))
+  // 杯子
+  const [cx, cy] = ip(x + 0.44, y + 0.14, z)
+  parts.push({ d: ep(cx, cy, 3.4, 1.6), fill: 'rgba(96, 74, 92, .14)' })
+  parts.push(...box(x + 0.42, y + 0.1, 0.1, 0.1, z, z + 5, { l: '#fdfaf4', r: '#eee7dd', t: '#fffdf8' }))
+  parts.push({ d: ep(cx, cy - 5, 2.6, 1.2), fill: '#f6efe4' })
+  parts.push({ d: ep(cx, cy - 5.4, 1.8, 0.8), fill: '#8a6152' })
+  return parts
+}
+
+/** 单独一个杯子（放桌上、台面上） */
+function cup (s) {
+  const { x, y, z = 14 } = s
+  const [cx, cy] = ip(x, y, z)
+  return [
+    { d: ep(cx, cy, 3.2, 1.5), fill: 'rgba(96, 74, 92, .12)' },
+    ...box(x - 0.05, y - 0.05, 0.1, 0.1, z, z + 5, { l: '#fdfaf4', r: '#eee7dd', t: '#fffdf8' }),
+    { d: ep(cx, cy - 5, 2.6, 1.2), fill: '#f6efe4' },
+    { d: ep(cx, cy - 5.4, 1.7, 0.75), fill: '#9a6f5c' }
+  ]
+}
+
+/** 垃圾桶：一个斜口的小桶 + 里头的纸团 */
+function trashBin (s) {
+  const { x, y } = s
+  const [bx, by] = ip(x + 0.16, y + 0.16, 0)
+  return [
+    { d: ep(bx, by, 8, 3.4), fill: 'rgba(96, 74, 92, .14)' },
+    { d: poly([[bx - 7, by], [bx + 7, by], [bx + 6, by - 15], [bx - 6, by - 15]]), fill: '#cbbfc4' },
+    { d: poly([[bx - 7, by], [bx - 2, by], [bx - 2, by - 15], [bx - 6, by - 15]]), fill: '#ddd3d7' },
+    { d: ep(bx, by - 15, 6, 2.6), fill: '#b8abb1' },
+    { d: ep(bx - 1.5, by - 16.4, 2.4, 1.4), fill: '#fdfaf6' }
+  ]
+}
+
+/** 纸箱堆：便利店后场那种 */
+function boxes (s) {
+  const { x, y } = s
+  const parts = []
+  parts.push(...box(x, y, 0.52, 0.42, 0, 17, { l: '#d9b98e', r: '#c4a179', t: '#ecd2ad' }))
+  parts.push(...box(x + 0.06, y + 0.05, 0.4, 0.32, 17, 19, { l: '#e5c9a2', r: '#d0b189', t: '#f4e0c2' }))
+  parts.push(...box(x + 0.3, y + 0.1, 0.44, 0.36, 0, 13, { l: '#cfae83', r: '#bb9a70', t: '#e3c69d' }))
+  // 胶带
+  parts.push({ d: poly([ip(x + 0.24, y + 0.42, 8), ip(x + 0.28, y + 0.42, 8), ip(x + 0.28, y + 0.42, 17), ip(x + 0.24, y + 0.42, 17)]), fill: 'rgba(255, 250, 240, .6)' })
+  parts.push({ d: poly([ip(x + 0.24, y + 0.4, 17), ip(x + 0.28, y + 0.4, 17), ip(x + 0.28, y + 0.42, 17), ip(x + 0.24, y + 0.42, 17)]), fill: 'rgba(255, 250, 240, .5)' })
+  return parts
+}
+
+/** 吊灯笼：一根绳 + 一只暖色纸灯笼，下垂到桌面高度 */
+function paperLantern (s) {
+  const { x, y, z = 58, drop = 16 } = s
+  const [bx, by] = ip(x, y, z)
+  const cz = by + drop
+  return [
+    { d: `M${P([bx, by])}V${r2(cz - 7)}`, fill: 'none', stroke: '#a98d83', sw: 1.2 },
+    { d: ep(bx, cz, 8, 4), fill: 'rgba(255, 214, 160, .28)' },
+    { d: ep(bx, cz, 6.4, 8), fill: '#fbe2b8' },
+    { d: ep(bx, cz, 5, 7), fill: '#fff0cf' },
+    { d: `M${P([bx - 5.4, cz - 2])}H${r2(bx + 5.4)}M${P([bx - 5.8, cz + 1.6])}H${r2(bx + 5.8)}`, fill: 'none', stroke: 'rgba(200, 150, 100, .35)', sw: 0.9 },
+    { d: poly([[bx - 2.4, cz - 8.6], [bx + 2.4, cz - 8.6], [bx + 2.4, cz - 7.2], [bx - 2.4, cz - 7.2]]), fill: '#c9955f' },
+    { d: poly([[bx - 2.4, cz + 7.2], [bx + 2.4, cz + 7.2], [bx + 2.4, cz + 8.6], [bx - 2.4, cz + 8.6]]), fill: '#c9955f' }
+  ]
+}
+
+/** 一只趴着的猫（彩蛋：镇上到处都有猫） */
+function cat (s) {
+  const { x, y } = s
+  const [bx, by] = ip(x + 0.28, y + 0.22, 0)
+  const c = s.c || '#e8d6c8'
+  return [
+    { d: ep(bx, by + 1, 13, 5), fill: 'rgba(96, 74, 92, .14)' },
+    // 身子
+    { d: ep(bx, by - 4, 12, 6.4), fill: c },
+    { d: ep(bx - 2, by - 6, 9, 5), fill: '#f3e6da' },
+    // 尾巴
+    { d: `M${P([bx + 11, by - 3])}q6 1 5 -4`, fill: 'none', stroke: c, sw: 3.2, 'stroke-linecap': 'round' },
+    // 头
+    { d: ep(bx - 8, by - 9, 6.2, 5.4), fill: c },
+    { d: poly([[bx - 12.4, by - 13], [bx - 10.6, by - 17.6], [bx - 8.6, by - 13.4]]), fill: c },
+    { d: poly([[bx - 6.6, by - 13.6], [bx - 4.4, by - 17.4], [bx - 2.8, by - 12.8]]), fill: c },
+    { d: ep(bx - 10, by - 9.4, 1.1, 1.4), fill: '#5f4a48' },
+    { d: ep(bx - 5.6, by - 9.4, 1.1, 1.4), fill: '#5f4a48' }
+  ]
+}
+
+/** 小盆栽：比 plant 更小，放窗台、桌角、搁板上 */
+function potted (s) {
+  const { x, y, z = 0 } = s
+  const c = s.c || '#f2a8bd'
+  const [bx, by] = ip(x, y, z)
+  return [
+    { d: ep(bx, by + 1, 6.4, 3), fill: 'rgba(96, 74, 92, .12)' },
+    { d: poly([[bx - 4.4, by], [bx + 4.4, by], [bx + 3.4, by - 6.6], [bx - 3.4, by - 6.6]]), fill: '#c9927a' },
+    { d: poly([[bx - 4.4, by], [bx - 0.6, by], [bx - 0.6, by - 6.6], [bx - 3.4, by - 6.6]]), fill: '#daa88f' },
+    { d: ep(bx, by - 6.6, 3.4, 1.3), fill: '#8f6a58' },
+    { d: ep(bx - 1.4, by - 11, 4.4, 4), fill: '#9cbb8e' },
+    { d: ep(bx + 2.4, by - 12.4, 3.6, 3.4), fill: '#b3cda4' },
+    { d: ep(bx - 2.6, by - 14, 2.2, 2), fill: c }
+  ]
+}
+
+/** 落地的一小株樱花枝（插在瓶里） */
+function vaseBranch (s) {
+  const { x, y, z = 0 } = s
+  const [bx, by] = ip(x, y, z)
+  return [
+    { d: ep(bx, by + 1, 5.6, 2.6), fill: 'rgba(96, 74, 92, .12)' },
+    { d: poly([[bx - 3.4, by], [bx + 3.4, by], [bx + 2.6, by - 10], [bx - 2.6, by - 10]]), fill: 'rgba(206, 232, 238, .9)' },
+    { d: poly([[bx - 3.4, by], [bx - 0.8, by], [bx - 0.6, by - 10], [bx - 2.6, by - 10]]), fill: 'rgba(232, 246, 250, .9)' },
+    { d: ep(bx, by - 10, 2.6, 1), fill: '#b9d6de' },
+    { d: `M${P([bx, by - 10])}q-4 -8 -8 -11M${P([bx, by - 10])}q4 -7 8 -10`, fill: 'none', stroke: '#8a6152', sw: 1.6 },
+    { d: ep(bx - 8, by - 21, 3.6, 3.2), fill: '#f3b4ca' },
+    { d: ep(bx + 7.4, by - 20, 3, 2.8), fill: '#f9c8d9' },
+    { d: ep(bx - 3.4, by - 24, 2.6, 2.4), fill: '#ffdbe7' }
+  ]
+}
+
 const DRAW = {
   sofa, table, rug, chair, plant, cushion, bed, desk, lamp, shelf,
   windowWall, poster, blackboard, counter, register, fridge,
@@ -676,7 +823,8 @@ const DRAW = {
   dumbbellRack, treadmill, gymBench, barbell, waterStation,
   benchLong, ticketMachine, stoneTable, stoneStool, stoneLantern,
   wishRack, fence, swing, flowerBed,
-  tvWall, floorLamp, deskLamp, bayWindow, coatHooks, laundry, punchingBag, towelRack, floorCushion
+  tvWall, floorLamp, deskLamp, bayWindow, coatHooks, laundry, punchingBag, towelRack, floorCushion,
+  stackBooks, deskBooks, cup, trashBin, boxes, paperLantern, cat, potted, vaseBranch
 }
 
 export function drawProp (p) {

@@ -179,6 +179,71 @@ const PROP_WALLS = {
       onWall(face, 0, 0, u0 + 0.05, u1 - 0.05, z0 + 3, z1 - 6, 'rgba(255, 255, 255, .5)')
     ]
   },
+  /** 挂钟：圆壳 + 指针，墙面上一个小亮点 */
+  clock (s) {
+    const { face, u0 = 2.4, z = 44 } = s
+    const [cx, cy] = face === 'left' ? ip(0, u0, z) : ip(u0, 0, z)
+    return [
+      { d: ep(cx, cy, 11, 11), fill: '#fffdf6' },
+      { d: ep(cx, cy, 11, 11), fill: 'none', stroke: '#c9a183', sw: 2.4 },
+      { d: ep(cx, cy, 9, 9), fill: 'none', stroke: 'rgba(150, 110, 100, .2)', sw: 0.8 },
+      { d: `M${pt([cx, cy])}V${r1(cy - 6.4)}`, fill: 'none', stroke: '#6b5470', sw: 1.8 },
+      { d: `M${pt([cx, cy])}H${r1(cx + 4.6)}`, fill: 'none', stroke: '#6b5470', sw: 1.6 },
+      { d: ep(cx, cy, 1.4, 1.4), fill: '#8d6a86' }
+    ]
+  },
+
+  /** 窗帘：一根杆 + 两侧垂下的布 */
+  curtain (s) {
+    const { face, u0, u1, z0 = 24, z1 = 56 } = s
+    const c = s.c || 'rgba(255, 244, 240, .94)'
+    const w = u1 - u0
+    const parts = [
+      onWall(face, 0, 0, u0 - 0.05, u1 + 0.05, z1 + 1.5, z1 + 3, '#c9a183'),
+      onWall(face, 0, 0, u0, u0 + w * 0.22, z0, z1, c),
+      onWall(face, 0, 0, u1 - w * 0.22, u1, z0, z1, c)
+    ]
+    // 布褶：两条竖线
+    parts.push(onWall(face, 0, 0, u0 + w * 0.08, u0 + w * 0.1, z0, z1, 'rgba(180, 140, 150, .18)'))
+    parts.push(onWall(face, 0, 0, u1 - w * 0.12, u1 - w * 0.1, z0, z1, 'rgba(180, 140, 150, .18)'))
+    // 底下摆一道边
+    parts.push(onWall(face, 0, 0, u0, u0 + w * 0.22, z0, z0 + 1.6, 'rgba(190, 150, 160, .22)'))
+    parts.push(onWall(face, 0, 0, u1 - w * 0.22, u1, z0, z0 + 1.6, 'rgba(190, 150, 160, .22)'))
+    return parts
+  },
+
+  /** 墙面搁板：一块板 + 上面几件小东西 */
+  wallShelf (s) {
+    const { face, u0, u1, z = 42 } = s
+    const parts = [
+      onWall(face, 0, 0, u0, u1, z - 1.6, z, '#d9b48c'),
+      onWall(face, 0, 0, u0, u1, z, z + 1.2, '#c4a179')
+    ]
+    // 板上：两本书 + 一个小瓶 + 一盆小植物
+    const w = u1 - u0
+    parts.push(onWall(face, 0, 0, u0 + 0.06, u0 + 0.16, z + 1.2, z + 6.4, '#c9556f'))
+    parts.push(onWall(face, 0, 0, u0 + 0.17, u0 + 0.26, z + 1.2, z + 5.4, '#7f9fc9'))
+    parts.push(onWall(face, 0, 0, u0 + w * 0.52, u0 + w * 0.58, z + 1.2, z + 5.2, 'rgba(206, 232, 238, .95)'))
+    parts.push(onWall(face, 0, 0, u0 + w * 0.48, u0 + w * 0.62, z + 5.2, z + 6.4, '#9cbb8e'))
+    parts.push(onWall(face, 0, 0, u0 + w * 0.72, u0 + w * 0.8, z + 1.2, z + 4.2, '#b189c4'))
+    return parts
+  },
+
+  /** 挂轴：和式房间里那种竖长条的字画 */
+  scroll (s) {
+    const { face, u0, z0 = 26, z1 = 52 } = s
+    const w = s.w || 0.42
+    return [
+      onWall(face, 0, 0, u0, u0 + w, z0, z1, '#f8f1e4'),
+      onWall(face, 0, 0, u0, u0 + w, z0, z1, 'none', { stroke: 'rgba(150, 110, 90, .34)', sw: 1.2 }),
+      onWall(face, 0, 0, u0 - 0.04, u0 + w + 0.04, z1, z1 + 2, '#8a6152'),
+      onWall(face, 0, 0, u0 - 0.04, u0 + w + 0.04, z0 - 2, z0, '#8a6152'),
+      // 画心的一点墨
+      onWall(face, 0, 0, u0 + w * 0.28, u0 + w * 0.72, z0 + 6, z0 + 12, 'rgba(90, 80, 86, .55)'),
+      onWall(face, 0, 0, u0 + w * 0.34, u0 + w * 0.66, z0 + 13, z0 + 15, 'rgba(90, 80, 86, .35)')
+    ]
+  },
+
   poster (s) {
     const { face, u0, u1, z0, z1 } = s
     return [

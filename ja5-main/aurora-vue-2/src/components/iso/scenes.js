@@ -14,7 +14,10 @@ export const SCENES = {
     walls: [
       { type: 'windowWall', face: 'left', u0: 0.6, u1: 2.6, z0: 24, z1: 56 },
       { type: 'poster', face: 'right', u0: 0.9, u1: 2.0, z0: 26, z1: 44, c: '#f2a8bd', c2: '#a8c6d9' },
-      { type: 'poster', face: 'right', u0: 5.0, u1: 5.8, z0: 30, z1: 42, c: '#c9a06a', c2: '#e6d3c4' }
+      { type: 'poster', face: 'right', u0: 5.0, u1: 5.8, z0: 30, z1: 42, c: '#c9a06a', c2: '#e6d3c4' },
+      { type: 'curtain', face: 'left', u0: 0.55, u1: 2.65, z0: 24, z1: 56 },
+      { type: 'clock', face: 'right', u0: 3.6, z: 50 },
+      { type: 'wallShelf', face: 'left', u0: 4.5, u1: 5.6, z: 34 }
     ],
     // 一道隔墙分出卧室（主厅 -> 侧室，门洞能看见里面）；
     // 玄关不砌墙，用矮鞋柜 + 地垫分区，视线才通透
@@ -46,7 +49,15 @@ export const SCENES = {
       { type: 'deskLamp', x: 5.15, y: 4.3, z: 14 },
       { type: 'chair', x: 5.4, y: 4.95 },
       { type: 'shelf', x: 6.98, y: 1.4, w: 0.36, d: 1.8, h: 40, rows: 3 },
-      { type: 'plant', x: 6.85, y: 5.3, size: 0.7 }
+      { type: 'plant', x: 6.85, y: 5.3, size: 0.7 },
+      // clutter-batch：茶几上的书、地上随手一摞、玄关的插花、窗台的猫
+      { type: 'deskBooks', x: 1.95, y: 3.3, z: 13 },
+      { type: 'cup', x: 2.95, y: 3.45, z: 13 },
+      { type: 'stackBooks', x: 0.5, y: 3.35, n: 4 },
+      { type: 'vaseBranch', x: 3.55, y: 5.15 },
+      { type: 'trashBin', x: 4.15, y: 4.75 },
+      { type: 'cat', x: 6.15, y: 6.0 },
+      { type: 'paperLantern', x: 3.4, y: 2.7, z: 58 }
     ],
     // 前景：贴着镜头的花枝，压住左下角，画面才有纵深
     foreground: [
@@ -79,7 +90,9 @@ export const SCENES = {
     foreground: [{ type: 'plant', x: 2.4, y: 5.95, size: 1.0 }],
     walls: [
       { type: 'windowWall', face: 'left', u0: 0.6, u1: 3.0, z0: 10, z1: 46 },
-      { type: 'poster', face: 'right', u0: 0.8, u1: 2.2, z0: 34, z1: 54, c: '#d4708c', c2: '#7f9fc9' }
+      { type: 'poster', face: 'right', u0: 0.8, u1: 2.2, z0: 34, z1: 54, c: '#d4708c', c2: '#7f9fc9' },
+      { type: 'clock', face: 'right', u0: 4.3, z: 52 },
+      { type: 'wallShelf', face: 'left', u0: 3.9, u1: 5.1, z: 46 }
     ],
     props: [
       // 橱窗里的展示台
@@ -100,7 +113,12 @@ export const SCENES = {
       // 阁楼：靠窗的懒人坐垫 + 一小摞书
       { type: 'floorCushion', x: 5.6, y: 4.05, c: '#e2c4d2' },
       { type: 'floorCushion', x: 6.55, y: 4.35, c: '#cfdcea' },
-      { type: 'table', x: 5.85, y: 4.85, w: 0.8, d: 0.5, h: 9, top: '#e0c8a8' }
+      { type: 'table', x: 5.85, y: 4.85, w: 0.8, d: 0.5, h: 9, top: '#e0c8a8' },
+      { type: 'deskBooks', x: 5.95, y: 4.95, z: 10 },
+      { type: 'stackBooks', x: 1.05, y: 4.55, n: 5 },
+      { type: 'stackBooks', x: 5.35, y: 5.35, n: 3 },
+      { type: 'potted', x: 2.05, y: 3.95, c: '#f2a8bd' },
+      { type: 'cat', x: 6.35, y: 3.35 }
     ],
     labels: [
       { t: '橱窗', x: 1.4, y: 1.6, z: 40 },
@@ -121,7 +139,9 @@ export const SCENES = {
     foreground: [{ type: 'plant', x: 1.35, y: 5.6, size: 0.95 }],
     walls: [
       { type: 'windowWall', face: 'left', u0: 0.8, u1: 3.2, z0: 12, z1: 48 },
-      { type: 'poster', face: 'right', u0: 0.6, u1: 1.8, z0: 34, z1: 52, c: '#e0576f', c2: '#7fa8a0' }
+      { type: 'poster', face: 'right', u0: 0.6, u1: 1.8, z0: 34, z1: 52, c: '#e0576f', c2: '#7fa8a0' },
+      { type: 'clock', face: 'left', u0: 3.9, z: 46 },
+      { type: 'wallShelf', face: 'right', u0: 3.2, u1: 4.4, z: 40 }
     ],
     props: [
       // 进门地垫
@@ -135,6 +155,10 @@ export const SCENES = {
       { type: 'counter', x: 0.5, y: 1.2, w: 1.6, d: 0.55 },
       { type: 'register', x: 0.85, y: 1.3 },
       { type: 'counter', x: 0.5, y: 2.15, w: 1.1, d: 0.5, l: '#dce4da', r: '#c6cfc4', t: '#eef4ea' },
+      { type: 'cup', x: 1.75, y: 1.45, z: 13 },
+      { type: 'boxes', x: 0.45, y: 5.15 },
+      { type: 'trashBin', x: 2.05, y: 4.65 },
+      { type: 'potted', x: 6.7, y: 0.55 },
       { type: 'plant', x: 6.5, y: 5.4, size: 0.8 }
     ],
     labels: [
@@ -155,7 +179,9 @@ export const SCENES = {
     foreground: [{ type: 'plant', x: 3.3, y: 6.5, size: 1.05 }],
     walls: [
       { type: 'windowWall', face: 'left', u0: 0.8, u1: 3.6, z0: 26, z1: 60 },
-      { type: 'blackboard', u0: 0.7, u1: 3.1, z0: 26, z1: 58 }
+      { type: 'blackboard', u0: 0.7, u1: 3.1, z0: 26, z1: 58 },
+      { type: 'clock', face: 'left', u0: 5.0, z: 56 },
+      { type: 'curtain', face: 'left', u0: 0.75, u1: 3.65, z0: 26, z1: 60, c: 'rgba(246, 248, 240, .92)' }
     ],
     props: [
       // 教室
@@ -173,6 +199,11 @@ export const SCENES = {
       { type: 'lockers', x: 8.2, y: 0.5, w: 0.4, d: 2.6, h: 46 },
       // 中庭连廊：靠墙的一排小窗 + 盆栽
       { type: 'plant', x: 4.6, y: 3.05, size: 0.8 },
+      { type: 'deskBooks', x: 0.82, y: 3.15, z: 17 },
+      { type: 'stackBooks', x: 3.55, y: 6.15, n: 4 },
+      { type: 'potted', x: 4.15, y: 4.95, c: '#f2a8bd' },
+      { type: 'vaseBranch', x: 8.15, y: 4.55 },
+      { type: 'trashBin', x: 0.55, y: 6.35 },
       // 图书室
       { type: 'shelf', x: 4.6, y: 0.35, w: 3.4, d: 0.45, h: 42, rows: 3 },
       { type: 'table', x: 4.7, y: 2.0, w: 2.4, d: 0.9, h: 14 },
@@ -197,7 +228,9 @@ export const SCENES = {
     foreground: [{ type: 'plant', x: 2.15, y: 5.75, size: 1.0 }],
     walls: [
       { type: 'windowWall', face: 'left', u0: 0.8, u1: 3.4, z0: 24, z1: 58 },
-      { type: 'poster', face: 'right', u0: 0.7, u1: 2.4, z0: 36, z1: 56, c: '#7b6a9e', c2: '#c9b8de' }
+      { type: 'poster', face: 'right', u0: 0.7, u1: 2.4, z0: 36, z1: 56, c: '#7b6a9e', c2: '#c9b8de' },
+      { type: 'clock', face: 'left', u0: 5.2, z: 52 },
+      { type: 'wallShelf', face: 'right', u0: 4.9, u1: 6.1, z: 38 }
     ],
     props: [
       // 力量区
@@ -214,6 +247,10 @@ export const SCENES = {
       { type: 'waterStation', x: 4.25, y: 4.55 },
       { type: 'benchLong', x: 5.0, y: 4.75, w: 1.7 },
       { type: 'towelRack', x: 6.4, y: 4.7, w: 0.95 },
+      { type: 'cup', x: 4.35, y: 4.35, z: 13 },
+      { type: 'trashBin', x: 3.05, y: 5.55 },
+      { type: 'potted', x: 7.15, y: 1.5 },
+      { type: 'stackBooks', x: 5.15, y: 5.55, n: 2 },
       { type: 'plant', x: 6.9, y: 5.3, size: 0.85 }
     ],
     labels: [
@@ -235,7 +272,10 @@ export const SCENES = {
     walls: [
       { type: 'windowWall', face: 'left', u0: 0.8, u1: 3.6, z0: 20, z1: 50 },
       { type: 'poster', face: 'right', u0: 3.4, u1: 4.8, z0: 32, z1: 52, c: '#8f7794', c2: '#d9cbe0' },
-      { type: 'poster', face: 'left', u0: 4.35, u1: 5.55, z0: 30, z1: 44, c: '#8fa3cf', c2: '#e2e8f6' }
+      { type: 'poster', face: 'left', u0: 4.35, u1: 5.55, z0: 30, z1: 44, c: '#8fa3cf', c2: '#e2e8f6' },
+      { type: 'clock', face: 'left', u0: 4.55, z: 50 },
+      { type: 'curtain', face: 'left', u0: 0.75, u1: 3.65, z0: 20, z1: 50, c: 'rgba(248, 244, 236, .9)' },
+      { type: 'scroll', face: 'right', u0: 1.1, z0: 28, z1: 50 }
     ],
     props: [
       { type: 'benchLong', x: 0.8, y: 2.0, w: 2.6, d: 0.6 },
@@ -243,7 +283,11 @@ export const SCENES = {
       { type: 'ticketMachine', x: 4.6, y: 0.8 },
       { type: 'ticketMachine', x: 5.7, y: 0.8 },
       { type: 'rug', x: 3.4, y: 3.4, w: 2.4, d: 1.6, c: '#ded2c4', c2: '#ece3d8' },
-      { type: 'plant', x: 7.0, y: 5.2, size: 0.8 }
+      { type: 'plant', x: 7.0, y: 5.2, size: 0.8 },
+      { type: 'stackBooks', x: 1.05, y: 3.6, n: 3 },
+      { type: 'cup', x: 2.65, y: 2.25, z: 11 },
+      { type: 'trashBin', x: 3.65, y: 5.45 },
+      { type: 'paperLantern', x: 3.5, y: 3.9, z: 56 }
     ],
     labels: [
       { t: '长椅', x: 2.0, y: 2.6, z: 34 },
@@ -272,7 +316,12 @@ export const SCENES = {
       { type: 'stoneLantern', x: 5.2, y: 1.2 },
       { type: 'stoneLantern', x: 1.0, y: 4.6 },
       { type: 'flowerBed', x: 0.5, y: 1.9, w: 1.4, d: 0.7 },
-      { type: 'plant', x: 5.6, y: 4.4, size: 0.9 }
+      { type: 'plant', x: 5.6, y: 4.4, size: 0.9 },
+      { type: 'cup', x: 2.75, y: 2.35, z: 26 },
+      { type: 'stackBooks', x: 3.35, y: 2.85, n: 3 },
+      { type: 'potted', x: 1.15, y: 3.45, c: '#f6c3d2' },
+      { type: 'vaseBranch', x: 4.95, y: 2.25 },
+      { type: 'cat', x: 3.85, y: 4.55, c: '#e2cbb8' }
     ],
     labels: [
       { t: '石桌石凳', x: 2.6, y: 2.8, z: 32 },
