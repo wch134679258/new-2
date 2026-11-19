@@ -337,9 +337,9 @@ function dumbbellRack (s) {
 function treadmill (s) {
   const { x, y, w = 1.1, d = 2.2 } = s
   const parts = [
-    ...box(x, y, w, d, 0, 8, { l: '#4f5560', r: '#3d434c', t: '#69707c' }),
+    ...box(x, y, w, d, 0, 8, { l: '#8b93a1', r: '#767e8c', t: '#a3aab8' }),
     // 跑带
-    { d: poly([ip(x + 0.08, y + 0.12, 8.2), ip(x + w - 0.08, y + 0.12, 8.2), ip(x + w - 0.08, y + d - 0.12, 8.2), ip(x + 0.08, y + d - 0.12, 8.2)]), fill: '#2f343c' },
+    { d: poly([ip(x + 0.08, y + 0.12, 8.2), ip(x + w - 0.08, y + 0.12, 8.2), ip(x + w - 0.08, y + d - 0.12, 8.2), ip(x + 0.08, y + d - 0.12, 8.2)]), fill: '#5c6470' },
     // 扶手
     ...box(x + 0.06, y + d - 0.2, 0.1, 0.1, 8, 30, { l: '#7b8391', r: '#646c78', t: '#929aa8' }),
     ...box(x + w - 0.16, y + d - 0.2, 0.1, 0.1, 8, 30, { l: '#7b8391', r: '#646c78', t: '#929aa8' }),
@@ -407,10 +407,10 @@ function stoneTable (s) {
   const { x, y } = s
   const parts = [
     // 石桌
-    { d: ep(...ip(x, y), 26, 13), fill: '#cdc4c0' },
-    { d: ep(...ip(x, y, 4), 26, 13), fill: '#ded6d2' },
-    { d: ep(...ip(x, y, 26), 24, 12), fill: '#d6cdc8' },
-    { d: poly([ip(x - 0.12, y, 4), ip(x + 0.12, y, 4), ip(x + 0.12, y, 26), ip(x - 0.12, y, 26)]), fill: '#bdb3ae' }
+    { d: ep(...ip(x, y), 19, 9.6), fill: '#cdc4c0' },
+    { d: ep(...ip(x, y, 4), 19, 9.6), fill: '#ded6d2' },
+    { d: ep(...ip(x, y, 24), 17.6, 8.8), fill: '#d6cdc8' },
+    { d: poly([ip(x - 0.1, y, 4), ip(x + 0.1, y, 4), ip(x + 0.1, y, 24), ip(x - 0.1, y, 24)]), fill: '#bdb3ae' }
   ]
   return parts
 }
@@ -495,13 +495,188 @@ function flowerBed (s) {
 }
 
 /* ---------------- 分发 ---------------- */
+
+/* ============================================================
+   第二批：补「功能辨识度」
+   客厅的电视墙、卧室的飘窗、玄关的挂钩、后院的晾衣、
+   健身房的沙袋、休息角的毛巾 —— 少一件，房间就说不清是干什么的
+   ============================================================ */
+
+/** 电视墙：矮柜 + 挂墙的电视（屏幕朝镜头） */
+function tvWall (s) {
+  const { x, y, w = 2.2 } = s
+  const parts = []
+  // 柜体
+  parts.push(...box(x, y + 0.06, w, 0.46, 0, 12, { l: '#c9a183', r: '#ab866a', t: '#dcc0a2' }))
+  // 柜门 + 把手
+  for (let i = 0; i < 3; i++) {
+    const gx = x + 0.08 + i * ((w - 0.16) / 3)
+    parts.push({
+      d: poly([ip(gx, y + 0.52, 2), ip(gx + (w - 0.16) / 3 - 0.06, y + 0.52, 2), ip(gx + (w - 0.16) / 3 - 0.06, y + 0.52, 9.6), ip(gx, y + 0.52, 9.6)]),
+      fill: 'rgba(120, 90, 74, .22)'
+    })
+  }
+  // 电视：薄盒 + 屏幕
+  parts.push(...box(x + 0.14, y + 0.08, w - 0.28, 0.1, 18, 41, { l: '#3d3742', r: '#2c2731', t: '#4c4652' }))
+  parts.push({
+    d: poly([ip(x + 0.2, y + 0.18, 20.4), ip(x + w - 0.2, y + 0.18, 20.4), ip(x + w - 0.2, y + 0.18, 38.6), ip(x + 0.2, y + 0.18, 38.6)]),
+    fill: '#7ea6bd'
+  })
+  parts.push({
+    d: poly([ip(x + 0.28, y + 0.18, 32), ip(x + w * 0.55, y + 0.18, 32), ip(x + w * 0.4, y + 0.18, 24), ip(x + 0.2, y + 0.18, 24)]),
+    fill: 'rgba(255, 255, 255, .34)'
+  })
+  // 底座
+  parts.push(...box(x + w / 2 - 0.1, y + 0.1, 0.2, 0.08, 12, 18, { l: '#4c4652', r: '#3a3540', t: '#5a5460' }))
+  return parts
+}
+
+/** 落地灯：细杆 + 布灯罩 + 一点暖光 */
+function floorLamp (s) {
+  const { x, y } = s
+  const c = s.c || '#f6e0c2'
+  const [bx, by] = ip(x + 0.15, y + 0.15, 0)
+  return [
+    { d: ep(bx, by, 5.6, 2.8), fill: 'rgba(120, 90, 100, .24)' },
+    { d: `M${P([bx, by - 1])}V${r2(by - 42)}`, fill: 'none', stroke: '#b0949c', sw: 1.8 },
+    { d: ep(bx, by - 42, 8.6, 3), fill: c },
+    { d: poly([[bx - 8.6, by - 42], [bx + 8.6, by - 42], [bx + 5.4, by - 54], [bx - 5.4, by - 54]]), fill: c },
+    { d: ep(bx, by - 54, 5.4, 2), fill: '#fff7e6' },
+    { d: ep(bx, by - 50, 13, 6), fill: 'rgba(255, 226, 170, .3)' }
+  ]
+}
+
+/** 台灯：桌上那盏小灯 */
+function deskLamp (s) {
+  const { x, y, z = 14 } = s
+  const [bx, by] = ip(x + 0.12, y + 0.12, z)
+  return [
+    { d: ep(bx, by, 3.6, 1.8), fill: '#a98d92' },
+    { d: `M${P([bx, by - 1])}V${r2(by - 13)}`, fill: 'none', stroke: '#a98d92', sw: 1.4 },
+    { d: poly([[bx - 5, by - 13], [bx + 5, by - 13], [bx + 3.4, by - 20], [bx - 3.4, by - 20]]), fill: '#f8e2c0' },
+    { d: ep(bx, by - 12.4, 5, 1.8), fill: '#fff3da' }
+  ]
+}
+
+/** 飘窗：靠墙凸出的一块坐台 + 上面的垫子与抱枕 */
+function bayWindow (s) {
+  const { x, y, w = 1.7, d = 0.72 } = s
+  const parts = []
+  // 台体
+  parts.push(...box(x, y, w, d, 0, 14, { l: '#efd9c4', r: '#dcc2ab', t: '#f8e9d6' }))
+  // 台面软垫
+  parts.push(...box(x + 0.04, y + 0.04, w - 0.08, d - 0.08, 14, 18, { l: '#f0c6d4', r: '#e2b0c2', t: '#fbdbe4' }))
+  // 两个抱枕
+  parts.push(...box(x + 0.12, y + 0.1, 0.34, 0.22, 18, 25, { l: '#fff4f7', r: '#f6e2e8', t: '#fffafb' }))
+  parts.push(...box(x + w - 0.5, y + 0.14, 0.3, 0.2, 18, 24, { l: '#cfe0ef', r: '#bcd2e4', t: '#e4eff8' }))
+  // 窗（贴在墙上，画在台子上方）
+  parts.push({
+    d: poly([ip(x + 0.05, y + 0.02, 26), ip(x + w - 0.05, y + 0.02, 26), ip(x + w - 0.05, y + 0.02, 52), ip(x + 0.05, y + 0.02, 52)]),
+    fill: '#cfe8f2'
+  })
+  parts.push({
+    d: poly([ip(x + 0.05, y + 0.02, 26), ip(x + w - 0.05, y + 0.02, 26), ip(x + w - 0.05, y + 0.02, 52), ip(x + 0.05, y + 0.02, 52)]),
+    fill: 'none', stroke: '#fdf8f2', sw: 2.6
+  })
+  // 窗中梃
+  parts.push({
+    d: poly([ip(x + w / 2 - 0.02, y + 0.02, 26), ip(x + w / 2 + 0.02, y + 0.02, 26), ip(x + w / 2 + 0.02, y + 0.02, 52), ip(x + w / 2 - 0.02, y + 0.02, 52)]),
+    fill: '#fdf8f2'
+  })
+  return parts
+}
+
+/** 玄关挂钩板：一块横板 + 几枚钩子，挂着包和围巾 */
+function coatHooks (s) {
+  const { x, y, w = 1.1, z = 26 } = s
+  const parts = []
+  parts.push({
+    d: poly([ip(x, y + 0.02, z), ip(x + w, y + 0.02, z), ip(x + w, y + 0.02, z + 5), ip(x, y + 0.02, z + 5)]),
+    fill: '#e3c2a8'
+  })
+  for (let i = 0; i < 3; i++) {
+    const hx = x + 0.16 + i * ((w - 0.32) / 2)
+    const [px, py] = ip(hx, y + 0.05, z + 2)
+    parts.push({ d: `M${P([px, py])}v3`, fill: 'none', stroke: '#a98d83', sw: 1.6 })
+  }
+  // 挂着的包
+  const [bx, by] = ip(x + 0.2, y + 0.06, z)
+  parts.push({ d: poly([[bx - 4, by + 2], [bx + 4, by + 2], [bx + 5, by + 12], [bx - 3, by + 12]]), fill: '#c98fa4' })
+  // 围巾
+  const [sx, sy] = ip(x + w - 0.28, y + 0.06, z)
+  parts.push({ d: poly([[sx - 3, sy + 2], [sx + 3, sy + 2], [sx + 2, sy + 14], [sx - 2, sy + 14]]), fill: '#cfe0ef' })
+  return parts
+}
+
+/** 晾衣架：两根立杆 + 一道绳 + 三件小衣服 */
+function laundry (s) {
+  const { x, y, w = 1.7 } = s
+  const parts = []
+  const [ax, ay] = ip(x, y, 0)
+  const [bx, by] = ip(x + w, y, 0)
+  parts.push({ d: `M${P([ax, ay])}V${r2(ay - 34)}M${P([bx, by])}V${r2(by - 34)}`, fill: 'none', stroke: '#b09a8c', sw: 2 })
+  parts.push({ d: `M${P([ax, ay - 34])}L${P([bx, by - 34])}`, fill: 'none', stroke: '#c9b2a4', sw: 1.2 })
+  const cloths = ['#f6c9d5', '#d8e4f0', '#fff3d8']
+  for (let i = 0; i < 3; i++) {
+    const t = 0.2 + i * 0.28
+    const cx = ax + (bx - ax) * t
+    const cy = ay - 34 + (by - ay) * t
+    parts.push({ d: poly([[cx - 5, cy], [cx + 7, cy], [cx + 6, cy + 12], [cx - 4, cy + 12]]), fill: cloths[i] })
+  }
+  return parts
+}
+
+/** 沙袋：吊在横梁上的一只圆柱袋 */
+function punchingBag (s) {
+  const { x, y } = s
+  const [bx, by] = ip(x + 0.2, y + 0.2, 0)
+  return [
+    { d: ep(bx, by, 12, 5), fill: 'rgba(96, 74, 92, .16)' },
+    { d: `M${P([bx, by - 44])}V${r2(by - 54)}`, fill: 'none', stroke: '#8a7a8c', sw: 2.4 },
+    { d: poly([[bx - 9, by - 44], [bx + 9, by - 44], [bx + 9, by - 6], [bx - 9, by - 6]]), fill: '#8a5c6e' },
+    { d: poly([[bx - 9, by - 44], [bx - 2, by - 44], [bx - 2, by - 6], [bx - 9, by - 6]]), fill: '#a06d80' },
+    { d: ep(bx, by - 44, 9, 3.2), fill: '#6f4a5a' },
+    { d: ep(bx, by - 6, 9, 3.2), fill: '#6f4a5a' },
+    { d: poly([[bx - 9, by - 38], [bx + 9, by - 38], [bx + 9, by - 36], [bx - 9, by - 36]]), fill: '#f2e6ea' }
+  ]
+}
+
+/** 毛巾架：一根横杆 + 两条搭着的毛巾 */
+function towelRack (s) {
+  const { x, y, w = 1.1 } = s
+  const [ax, ay] = ip(x, y, 0)
+  const [bx, by] = ip(x + w, y, 0)
+  return [
+    { d: `M${P([ax, ay])}V${r2(ay - 28)}M${P([bx, by])}V${r2(by - 28)}`, fill: 'none', stroke: '#a9929a', sw: 2 },
+    { d: `M${P([ax, ay - 26])}L${P([bx, by - 26])}`, fill: 'none', stroke: '#bda8ae', sw: 2.2 },
+    { d: poly([[ax + 4, ay - 26], [ax + 16, ay - 26], [ax + 15, ay - 12], [ax + 5, ay - 12]]), fill: '#f4d3dd' },
+    { d: poly([[bx - 18, by - 26], [bx - 6, by - 26], [bx - 7, by - 13], [bx - 17, by - 13]]), fill: '#cfe0ef' }
+  ]
+}
+
+/** 小圆凳 / 懒人坐垫（书店阅读角用） */
+function floorCushion (s) {
+  const { x, y } = s
+  const c = s.c || '#e9c2d0'
+  const [bx, by] = ip(x + 0.24, y + 0.24, 0)
+  return [
+    { d: ep(bx, by, 13, 6.4), fill: 'rgba(96, 74, 92, .12)' },
+    { d: poly([[bx - 12, by - 2], [bx + 12, by - 2], [bx + 11, by - 10], [bx - 11, by - 10]]), fill: c },
+    { d: ep(bx, by - 10, 12, 5.6), fill: '#f6dae4' },
+    { d: ep(bx, by - 2, 12, 5.6), fill: c }
+  ]
+}
+
+function r2 (n) { return Math.round(n * 10) / 10 }
+
 const DRAW = {
   sofa, table, rug, chair, plant, cushion, bed, desk, lamp, shelf,
   windowWall, poster, blackboard, counter, register, fridge,
   schoolDesk, podium, lockers, matRow, dummy, gearRack,
   dumbbellRack, treadmill, gymBench, barbell, waterStation,
   benchLong, ticketMachine, stoneTable, stoneStool, stoneLantern,
-  wishRack, fence, swing, flowerBed
+  wishRack, fence, swing, flowerBed,
+  tvWall, floorLamp, deskLamp, bayWindow, coatHooks, laundry, punchingBag, towelRack, floorCushion
 }
 
 export function drawProp (p) {

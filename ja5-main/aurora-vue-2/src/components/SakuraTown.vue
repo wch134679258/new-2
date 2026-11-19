@@ -698,8 +698,11 @@ function faceQuad (fn, u0, u1, z0, z1) {
   return poly([fn(u0, z0), fn(u1, z0), fn(u1, z1), fn(u0, z1)])
 }
 
-const ROOF_LIGHT = '#7f5a7c'
-const ROOF_DARK = '#5c3d59'
+// 屋顶：偏蓝的薰衣草紫。原来的 #7f5a7c / #5c3d59 发褐，
+// 压在白墙上是「旧仓库」，不是樱花小镇
+const ROOF_LIGHT = '#8272a6'
+const ROOF_DARK = '#61528b'
+const ROOF_TOP = '#9a8cc0'
 
 const BUILDINGS = [
   {
@@ -846,9 +849,12 @@ function buildVenue (v) {
   const winFn = v.doorFace === 'left' ? rightFace : leftFace
 
   const deco = []
-  // 踢脚：贴地一条深色，盒子才不像一张纸
-  deco.push({ d: faceQuad(leftFace, 0, 1, 0, 6), fill: 'rgba(150,110,132,.24)' })
-  deco.push({ d: faceQuad(rightFace, 0, 1, 0, 6), fill: 'rgba(150,110,132,.15)' })
+  // 墙裙：贴地 11 高的护墙板 + 一道上沿线，墙面就有了上下两段
+  const skirt = Math.max(9, Math.min(13, h * 0.17))
+  deco.push({ d: faceQuad(leftFace, 0, 1, 0, skirt), fill: 'rgba(126, 88, 114, .17)' })
+  deco.push({ d: faceQuad(rightFace, 0, 1, 0, skirt), fill: 'rgba(126, 88, 114, .11)' })
+  deco.push({ d: faceQuad(leftFace, 0, 1, skirt, skirt + 1.4), fill: 'rgba(104, 70, 96, .26)' })
+  deco.push({ d: faceQuad(rightFace, 0, 1, skirt, skirt + 1.4), fill: 'rgba(104, 70, 96, .18)' })
 
   /* 窗户：不能整面墙都是同一个方块。
      四种样式轮换：竖中梃 / 窗台花箱 / 窗帘 / 十字窗格 */
@@ -1201,16 +1207,26 @@ function buildVenue (v) {
     })
     roofParts.push({
       d: `M${P(ip(x0 - e, mid - 0.08, h + rise))}L${P(ip(x1 + e, mid - 0.08, h + rise))}L${P(ip(x1 + e, mid + 0.08, h + rise))}L${P(ip(x0 - e, mid + 0.08, h + rise))}Z`,
-      fill: '#a97f9c'
+      fill: '#b3a6d6'
     })
+    // tile-lines：人字坡顺着坡度画几道
+    for (let i = 1; i < 4; i++) {
+      const t = i / 4
+      const yy = y1 + e + (mid - (y1 + e)) * t
+      const zz = h + rise * t
+      roofParts.push({
+        d: poly([ip(x0 - e, yy, zz), ip(x1 + e, yy, zz), ip(x1 + e, yy + 0.026, zz), ip(x0 - e, yy + 0.026, zz)]),
+        fill: 'rgba(255,255,255,.14)'
+      })
+    }
     // 烟囱
     roofParts.push({
       d: poly([ip(x0 + 0.35, y1 - 0.55, h + 6), ip(x0 + 0.8, y1 - 0.55, h + 6), ip(x0 + 0.8, y1 - 0.55, h + 34), ip(x0 + 0.35, y1 - 0.55, h + 34)]),
-      fill: '#a98a9b'
+      fill: '#a695bd'
     })
     roofParts.push({
       d: poly([ip(x0 + 0.35, y1 - 0.55, h + 34), ip(x0 + 0.8, y1 - 0.55, h + 34), ip(x0 + 0.8, y1 - 1.0, h + 34), ip(x0 + 0.35, y1 - 1.0, h + 34)]),
-      fill: '#c3a5b2'
+      fill: '#c8bade'
     })
   } else {
     const rt = h + 6
@@ -1224,14 +1240,22 @@ function buildVenue (v) {
     })
     roofParts.push({
       d: poly([ip(x0 - e, y0 - e, rt), ip(x1 + e, y0 - e, rt), ip(x1 + e, y1 + e, rt), ip(x0 - e, y1 + e, rt)]),
-      fill: '#8f6a88'
+      fill: ROOF_TOP
     })
     // 顶面的一道浅色反光
     roofParts.push({
       d: poly([ip(x0 + 0.15, y0 + 0.15, rt), ip(x1 - 0.4, y0 + 0.15, rt), ip(x1 - 0.4, y1 - 0.75, rt), ip(x0 + 0.15, y1 - 0.75, rt)]),
-      fill: '#a17b9a',
+      fill: '#b3a6d6',
       opacity: 0.6
     })
+    // tile-lines：瓦楞。平行屋脊的细线，屋顶不再是一整块平色
+    for (let i = 1; i < 6; i++) {
+      const yy = y0 + (v.d * i) / 6
+      roofParts.push({
+        d: poly([ip(x0 - e, yy, rt), ip(x1 + e, yy, rt), ip(x1 + e, yy + 0.026, rt), ip(x0 - e, yy + 0.026, rt)]),
+        fill: i % 2 ? 'rgba(255,255,255,.14)' : 'rgba(60,44,88,.10)'
+      })
+    }
   }
 
   /* =========================================================
@@ -1248,16 +1272,16 @@ function buildVenue (v) {
     // 檐口木饰条：朝向镜头的两条边各压一道深木色，屋顶立刻有了厚度
     roofParts.push({
       d: poly([ip(x0 - e, y1 + e, trimZ0), ip(x1 + e, y1 + e, trimZ0), ip(x1 + e, y1 + e, trimZ1), ip(x0 - e, y1 + e, trimZ1)]),
-      fill: '#6f4a48'
+      fill: '#6d5578'
     })
     roofParts.push({
       d: poly([ip(x1 + e, y0 - e, trimZ0), ip(x1 + e, y1 + e, trimZ0), ip(x1 + e, y1 + e, trimZ1), ip(x1 + e, y0 - e, trimZ1)]),
-      fill: '#593a3a'
+      fill: '#564266'
     })
     // 浅紫描边：木条上再压一道细线，深紫不发闷
     roofParts.push({
       d: poly([ip(x0 - e, y1 + e, trimZ1), ip(x1 + e, y1 + e, trimZ1), ip(x1 + e, y1 + e, trimZ1 + 1.4), ip(x0 - e, y1 + e, trimZ1 + 1.4)]),
-      fill: '#bb9fc0'
+      fill: '#cbbce6'
     })
 
     // 天窗

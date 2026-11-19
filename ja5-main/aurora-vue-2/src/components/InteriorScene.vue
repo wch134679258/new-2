@@ -22,9 +22,22 @@
       <path v-for="(p, i) in wallParts" :key="`w${i}`" :d="p.d" :fill="p.fill || 'none'"
             :stroke="p.stroke || 'none'" :stroke-width="p.sw || 0" :opacity="p.opacity == null ? 1 : p.opacity" />
 
-      <!-- 家具：按 x+y 排序，近的压远的 -->
+      <!-- 家具 + 隔墙：按 x+y 排序，近的压远的 -->
       <g v-for="(item, i) in placed" :key="`p${i}`">
         <path v-for="(p, j) in item.parts" :key="`q${j}`" :d="p.d" :fill="p.fill || 'none'"
+              :stroke="p.stroke || 'none'" :stroke-width="p.sw || 0" :opacity="p.opacity == null ? 1 : p.opacity" />
+      </g>
+
+      <!-- 前沿墙垛：剖切面上留着的一小段外墙，给房间一点包裹感 -->
+      <g v-if="pierParts.length">
+        <path v-for="(p, i) in pierParts" :key="`pr${i}`" :d="p.d" :fill="p.fill || 'none'"
+              :stroke="p.stroke || 'none'" :stroke-width="p.sw || 0" :opacity="p.opacity == null ? 1 : p.opacity" />
+      </g>
+
+      <!-- 前沿墙垛：剖切面上留着的一小段外墙，给房间一点包裹感 -->
+      <!-- 前景：贴着镜头的东西，不参与排序，永远压在最上面 -->
+      <g v-if="foreParts.length">
+        <path v-for="(p, i) in foreParts" :key="`f${i}`" :d="p.d" :fill="p.fill || 'none'"
               :stroke="p.stroke || 'none'" :stroke-width="p.sw || 0" :opacity="p.opacity == null ? 1 : p.opacity" />
       </g>
 
@@ -41,7 +54,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { ip, r1 } from './iso/iso'
+import { ip, r1, onWall, ep, divider, doorFrame, roomShell, frontPiers } from './iso/iso'
 import { drawProp } from './iso/props'
 import { SCENES } from './iso/scenes'
 
@@ -51,32 +64,10 @@ const props = defineProps({
 
 const scene = computed(() => SCENES[props.sceneKey] || SCENES.home)
 
-/** 房间外壳 */
+/** 房间外壳：直接用 iso.js 的 roomShell，别在这儿再写一份（两份会走样） */
 const shell = computed(() => {
   const r = scene.value.room
-  const { w, d, h } = r
-  const wallL = r.wallL || '#f3e2e8'
-  const wallR = r.wallR || '#fdf0ea'
-  const floor = r.floor || '#f0dccb'
-  const parts = []
-
-  // 地板 + 木纹
-  parts.push({ d: polyOf([ip(0, 0), ip(w, 0), ip(w, d), ip(0, d)]), fill: floor })
-  for (let i = 1; i < Math.round(d); i++) {
-    parts.push({ d: `M${pt(ip(0, i))}L${pt(ip(w, i))}`, fill: 'none', stroke: 'rgba(150, 110, 90, .14)', sw: 1 })
-  }
-  // 后墙两面
-  parts.push({ d: polyOf([ip(0, 0, 0), ip(0, d, 0), ip(0, d, h), ip(0, 0, h)]), fill: wallL })
-  parts.push({ d: polyOf([ip(0, 0, 0), ip(w, 0, 0), ip(w, 0, h), ip(0, 0, h)]), fill: wallR })
-  // 墙脚
-  parts.push({ d: polyOf([ip(0, 0, 0), ip(0, d, 0), ip(0, d, 5), ip(0, 0, 5)]), fill: 'rgba(160, 120, 110, .26)' })
-  parts.push({ d: polyOf([ip(0, 0, 0), ip(w, 0, 0), ip(w, 0, 5), ip(0, 0, 5)]), fill: 'rgba(160, 120, 110, .18)' })
-  // 墙缝
-  parts.push({ d: `M${pt(ip(0, 0, 0))}L${pt(ip(0, 0, h))}`, fill: 'none', stroke: 'rgba(150, 110, 120, .28)', sw: 1.3 })
-  // 剖切面（楼板厚度）
-  parts.push({ d: polyOf([ip(0, d, 0), ip(w, d, 0), ip(w, d, -8), ip(0, d, -8)]), fill: '#dcc6b0' })
-  parts.push({ d: polyOf([ip(w, 0, 0), ip(w, d, 0), ip(w, d, -8), ip(w, 0, -8)]), fill: '#cbb39c' })
-
+  const parts = roomShell(r)
   // 院子等附加地面
   ;(scene.value.extras || []).filter((e) => e.kind === 'ground').forEach((g) => {
     parts.push({ d: polyOf([ip(g.x, g.y), ip(g.x + g.w, g.y), ip(g.x + g.w, g.y + g.d), ip(g.x, g.y + g.d)]), fill: g.fill })
@@ -106,7 +97,31 @@ const placed = computed(() => {
     const parts = drawProp(e)
     if (parts.length) list.push({ depth: e.x + e.y + (e.w || 0) * 0.5, parts })
   })
+  // 隔墙：切成小段跟进队列，家具才不会整片压在墙前面
+  ;(scene.value.dividers || []).forEach((d) => {
+    divider(d).forEach((seg) => list.push({ depth: seg.depth, parts: seg.parts }))
+    if (d.door) {
+      const df = doorFrame(d.axis || 'y', d.at, d.door.at, d.door.w, d.door.z || 38, d.doorColor || '#c9a183')
+      list.push({ depth: d.at + d.door.at, parts: df })
+    }
+  })
   return list.sort((a, b) => a.depth - b.depth)
+})
+
+/** 前沿墙垛：画在家具之后（它比所有家具都靠前） */
+const pierParts = computed(() => frontPiers(scene.value.room))
+
+/** 前景：贴着镜头的遮挡（近处的墙角、垂下的花枝），永远画在最上层 */
+const foreParts = computed(() => {
+  const out = []
+  ;(scene.value.foreground || []).forEach((f) => {
+    if (f.parts) out.push(...f.parts)
+    else {
+      const parts = drawProp(f)
+      if (parts.length) out.push(...parts)
+    }
+  })
+  return out
 })
 
 /** 区域小牌：先用屏幕坐标算好矩形，交给模板画 */
@@ -144,8 +159,8 @@ const box = computed(() => {
     x1 = Math.max(x1, px)
     y1 = Math.max(y1, py)
   })
-  const pad = 12
-  return `${r1(x0 - pad)} ${r1(y0 - pad - 12)} ${r1(x1 - x0 + pad * 2)} ${r1(y1 - y0 + pad * 2 + 12)}`
+  const pad = 8
+  return `${r1(x0 - pad)} ${r1(y0 - pad - 8)} ${r1(x1 - x0 + pad * 2)} ${r1(y1 - y0 + pad * 2 + 8)}`
 })
 
 /* ---- 小工具（模板里直接用来拼路径） ---- */
@@ -153,7 +168,6 @@ function pt (p) { return `${r1(p[0])} ${r1(p[1])}` }
 function polyOf (pts) { return 'M' + pts.map(pt).join('L') + 'Z' }
 
 /* 墙面件单独取（props.js 里的 onWall 系列） */
-import { onWall, ep } from './iso/iso'
 const PROP_WALLS = {
   windowWall (s) {
     const { face, u0, u1, z0 = 22, z1 = 54 } = s
@@ -228,7 +242,7 @@ const PROP_WALLS = {
   display: block;
   width: 100%;
   height: auto;
-  max-height: 58vh;
+  max-height: min(58vh, 560px);
 }
 .iso__lb {
   font-family: var(--font-serif);
