@@ -2,7 +2,17 @@
   <div class="town-page">
     <SiteNav :user="user" active="town" @go="$emit('navigate', $event)" @logout="$emit('logout')" />
 
-    <main class="town" :class="{ 'town--gust': gusting, 'is-flipping': flipping }">
+    <main
+      class="town"
+      :class="{
+        'town--gust': gusting,
+        'is-flipping': flipping,
+        'town--dusk': sky === 'dusk',
+        'town--night': sky === 'night',
+        'town--rain': weather === 'rain',
+        'town--snow': weather === 'snow'
+      }"
+    >
       <!-- 天空底色：等距地图四周留出的天空由 CSS 负责，SVG 只画云 -->
       <div class="town__sky" aria-hidden="true">
         <i class="sky__sun"></i>
@@ -70,6 +80,19 @@
               <stop offset="0" stop-color="#fff3c9" stop-opacity=".9" />
               <stop offset=".35" stop-color="#ffe3ad" stop-opacity=".42" />
               <stop offset="1" stop-color="#ffe3ad" stop-opacity="0" />
+            </radialGradient>
+            <!-- 夜里的路灯光晕：比白天那圈更大更软，r=40 铺在夜色遮罩之上 -->
+            <radialGradient id="lampNight">
+              <stop offset="0" stop-color="#ffe6b0" stop-opacity=".95" />
+              <stop offset=".32" stop-color="#ffd68e" stop-opacity=".5" />
+              <stop offset=".68" stop-color="#ffc97e" stop-opacity=".16" />
+              <stop offset="1" stop-color="#ffc07a" stop-opacity="0" />
+            </radialGradient>
+            <!-- 夜里广场地面被灯和窗映出的一点暖色 -->
+            <radialGradient id="plazaWarm">
+              <stop offset="0" stop-color="#ffdca6" stop-opacity=".55" />
+              <stop offset=".55" stop-color="#ffc488" stop-opacity=".22" />
+              <stop offset="1" stop-color="#ffb878" stop-opacity="0" />
             </radialGradient>
             <radialGradient id="sunGlow">
               <stop offset="0" stop-color="#fff5da" stop-opacity=".85" />
@@ -392,6 +415,47 @@
               </g>
             </g>
           </g>
+
+          <!-- ---------- 昼夜：铺满取景框的一层色片，fill 全交给 CSS 变量 ----------
+               白天 --sky-tint 是 transparent，这一层等于不存在；
+               夜里额外叠 multiply，把整块小岛压进蓝紫里 -->
+          <rect
+            class="town__tint"
+            :x="vb.x - vb.w"
+            :y="vb.y - vb.h"
+            :width="vb.w * 3"
+            :height="vb.h * 3"
+            fill="var(--sky-tint, transparent)"
+            pointer-events="none"
+            aria-hidden="true"
+          />
+
+          <!-- ---------- 夜景灯：画在夜色之上，才亮得起来 ----------
+               白天 v-if 不渲染，DOM 里连节点都没有，保证白天逐像素不变 -->
+          <g v-if="sky === 'night'" class="nightlights" pointer-events="none" aria-hidden="true">
+            <!-- 广场地面的暖色反射（灯和窗落在地上的一团） -->
+            <ellipse
+              :cx="plaza.cx"
+              :cy="plaza.cy + 6"
+              :rx="plaza.rx * 1.15"
+              :ry="plaza.ry * 1.1"
+              fill="url(#plazaWarm)"
+              opacity=".34"
+            />
+            <!-- 窗玻璃：连同形状一起重画一遍，压不住立面细节就靠这一层 -->
+            <path
+              v-for="(w, i) in litWindows"
+              :key="`lw${i}`"
+              :d="w"
+              fill="#ffe2a8"
+              opacity=".85"
+            />
+            <!-- 路灯：半径 40 的暖光晕，灯下再补一圈落在地上的光斑 -->
+            <g v-for="(l, i) in lampHalos" :key="`lh${i}`">
+              <ellipse :cx="l.x" :cy="l.y + 46" :rx="26" :ry="12" fill="url(#plazaWarm)" opacity=".5" />
+              <circle :cx="l.x" :cy="l.y" r="40" fill="url(#lampNight)" opacity=".35" />
+            </g>
+          </g>
         </svg>
 
         <!-- 建筑名牌：放在 HTML 层，字号不随 SVG 缩放，手机上也可读 -->
@@ -435,6 +499,30 @@
           <path d="M9.5 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
       </button>
+
+      <!-- 昼夜 / 天气：两个按钮手动切，不自动流逝（转一圈会晕） -->
+      <div class="ambience" role="group" aria-label="昼夜与天气">
+        <button
+          class="amb__btn"
+          type="button"
+          :title="`时间：${skyLabel}　点击切换 白天 → 黄昏 → 夜晚`"
+          @click="cycleSky"
+        >
+          <i class="amb__dot" :style="{ background: skyDot }"></i>
+          <b>{{ skyLabel }}</b>
+          <em>时间</em>
+        </button>
+        <button
+          class="amb__btn"
+          type="button"
+          :title="`天气：${weatherLabel}　点击切换 晴 → 雨 → 雪`"
+          @click="cycleWeather"
+        >
+          <i class="amb__dot" :style="{ background: weatherDot }"></i>
+          <b>{{ weatherLabel }}</b>
+          <em>天气</em>
+        </button>
+      </div>
 
       <!-- 底部页签：全景 / 本町 / 商店街 / 学校·车站 -->
       <nav class="mapdots" aria-label="地图分页">
@@ -1393,7 +1481,9 @@ function buildVenue (v) {
     deco.push({
       d: faceQuad(fn, u0, u1, z0, z1),
       fill: v.glass ? 'rgba(206,238,232,.92)' : '#ffe4ac',
-      opacity: 0.95
+      opacity: 0.95,
+      // 夜里要点亮的就是这几块：几何被夜景层原样重画一遍，画在夜色之上
+      lit: true
     })
     deco.push({ d: faceQuad(fn, u0, u1, z0, z1), fill: 'none', stroke: 'rgba(110,76,98,.42)', sw: 1.2 })
 
@@ -1633,7 +1723,7 @@ function buildVenue (v) {
     const wu1 = 0.94
     const z0 = 12
     const z1 = 46
-    deco.push({ d: faceQuad(doorFn, wu0, wu1, z0, z1), fill: '#fff3d8' })
+    deco.push({ d: faceQuad(doorFn, wu0, wu1, z0, z1), fill: '#fff3d8', lit: true })
     deco.push({ d: faceQuad(doorFn, wu0, wu1, z0, z1), fill: 'none', stroke: '#a9786f', sw: 2.2 })
     const shelves = [z0 + 6, z0 + 17, z0 + 28]
     for (const sz of shelves) {
@@ -2113,7 +2203,7 @@ function buildVenue (v) {
     // 咖啡馆：大玻璃窗 + 窗上的杯子 + 圆牌吊招牌 + 门口小圆桌
     const wu0 = 0.4
     const wu1 = 0.95
-    deco.push({ d: faceQuad(doorFn, wu0, wu1, 12, 42), fill: 'rgba(255, 238, 205, .9)' })
+    deco.push({ d: faceQuad(doorFn, wu0, wu1, 12, 42), fill: 'rgba(255, 238, 205, .9)', lit: true })
     deco.push({ d: faceQuad(doorFn, wu0, wu1, 12, 42), fill: 'none', stroke: '#9a7a5e', sw: 2 })
     deco.push({ d: faceQuad(doorFn, wu0 + 0.02, wu1 - 0.02, 26, 28), fill: 'rgba(160, 120, 90, .45)' })
     // 窗中的杯子：杯身 + 把手 + 两缕热气
@@ -2172,7 +2262,7 @@ function buildVenue (v) {
     // 花店：整面橱窗摆花 + 窗前花桶 + 檐下条纹雨棚 + 吊篮
     const wu0 = 0.26
     const wu1 = 0.96
-    deco.push({ d: faceQuad(doorFn, wu0, wu1, 10, 38), fill: 'rgba(255, 253, 244, .95)' })
+    deco.push({ d: faceQuad(doorFn, wu0, wu1, 10, 38), fill: 'rgba(255, 253, 244, .95)', lit: true })
     deco.push({ d: faceQuad(doorFn, wu0, wu1, 10, 38), fill: 'none', stroke: '#8fae83', sw: 2.2 })
     // 橱窗里的一排花（沿着窗台）
     for (let i = 0; i < 4; i++) {
@@ -3483,6 +3573,49 @@ function onPointerLeave () {
   tilt.value = { x: 0, y: 0 }
 }
 
+/* ---------- 昼夜 / 天气 ----------
+   全部手动切换，不做时间流逝：默认 day + clear，等价于改动前的小镇 */
+const SKY_STEPS = [
+  { key: 'day', label: '白天', dot: 'linear-gradient(140deg,#fff6d8,#f3c469)' },
+  { key: 'dusk', label: '黄昏', dot: 'linear-gradient(140deg,#ffd9ad,#ee8f66)' },
+  { key: 'night', label: '夜晚', dot: 'linear-gradient(140deg,#9486c9,#453a74)' }
+]
+const WEATHER_STEPS = [
+  { key: 'clear', label: '晴', dot: 'linear-gradient(140deg,#fffdf6,#e4d6ec)' },
+  { key: 'rain', label: '雨', dot: 'linear-gradient(140deg,#d3e6f1,#86aec4)' },
+  { key: 'snow', label: '雪', dot: 'linear-gradient(140deg,#ffffff,#d6e1ef)' }
+]
+const sky = ref('day')
+const weather = ref('clear')
+const skyMeta = computed(() => SKY_STEPS.find((s) => s.key === sky.value) || SKY_STEPS[0])
+const weatherMeta = computed(() => WEATHER_STEPS.find((w) => w.key === weather.value) || WEATHER_STEPS[0])
+const skyLabel = computed(() => skyMeta.value.label)
+const skyDot = computed(() => skyMeta.value.dot)
+const weatherLabel = computed(() => weatherMeta.value.label)
+const weatherDot = computed(() => weatherMeta.value.dot)
+
+function cycleSky () {
+  const i = SKY_STEPS.findIndex((s) => s.key === sky.value)
+  sky.value = SKY_STEPS[(i + 1) % SKY_STEPS.length].key
+}
+function cycleWeather () {
+  const i = WEATHER_STEPS.findIndex((w) => w.key === weather.value)
+  weather.value = WEATHER_STEPS[(i + 1) % WEATHER_STEPS.length].key
+  seedPrecip()
+}
+
+/* 夜里要点亮的窗：直接读建筑 deco 里打了 lit 标记的那几块，不另算一套几何 */
+const litWindows = computed(() => {
+  const out = []
+  for (const v of venues) {
+    if (!v.deco) continue
+    for (const d of v.deco) if (d.lit && d.d) out.push(d.d)
+  }
+  return out
+})
+/* 路灯灯头的位置（光晕是加在夜色遮罩之上的，所以单独提出来） */
+const lampHalos = computed(() => LAMPS.map((l) => ({ x: l.bx, y: l.by - 48 })))
+
 /* ---------- Canvas 花瓣 ---------- */
 const petalCanvas = ref(null)
 const gusting = ref(false)
@@ -3547,6 +3680,67 @@ function burstPetals () {
   gustTimer = setTimeout(() => { gusting.value = false }, 1500)
 }
 
+/* ---------- 天气粒子：还是这一张 canvas，还是同一个 requestAnimationFrame ----------
+   雨是细斜线，雪是小圆点 + 左右摆；clear 时 precip 是空数组，循环里连判断都省了 */
+let precip = []
+
+function makePrecip (kind, seedAll) {
+  if (kind === 'rain') {
+    const depth = random(0.55, 1.35)
+    return {
+      kind: 'rain',
+      x: random(-50, width + 70),
+      y: seedAll ? random(-height * 0.4, height) : random(-height * 0.3, -10),
+      vy: random(620, 980) * (0.55 + depth * 0.45),
+      vx: -random(48, 82) * depth,
+      len: random(13, 26) * depth,
+      alpha: random(0.34, 0.68) * Math.min(1, 0.62 + depth * 0.32),
+      w: depth > 1.1 ? 1.5 : 1.05
+    }
+  }
+  return {
+    kind: 'snow',
+    x: random(0, width),
+    y: seedAll ? random(-height * 0.4, height) : random(-height * 0.25, -8),
+    vy: random(22, 58),
+    r: random(1.4, 3),
+    sway: random(10, 28),
+    spin: random(0.5, 1.3),
+    phase: random(0, Math.PI * 2),
+    alpha: random(0.55, 0.95)
+  }
+}
+
+function seedPrecip () {
+  precip = []
+  if (weather.value === 'clear' || !width || !height) return
+  const kind = weather.value === 'rain' ? 'rain' : 'snow'
+  // 按画面宽度铺密度，4K 屏上也不能只下三滴
+  const want = Math.round(width / 7)
+  const cap = reduceMotion.value ? 46 : 260
+  const n = Math.max(6, Math.min(cap, Math.round(want * (reduceMotion.value ? 0.35 : 1))))
+  for (let i = 0; i < n; i++) precip.push(makePrecip(kind, true))
+}
+
+function drawPrecip (d) {
+  const ctx = canvasCtx
+  ctx.globalAlpha = Math.max(0, d.alpha)
+  if (d.kind === 'rain') {
+    ctx.strokeStyle = '#e6f2ff'
+    ctx.lineWidth = d.w
+    ctx.beginPath()
+    ctx.moveTo(d.x, d.y)
+    ctx.lineTo(d.x + d.vx * 0.018, d.y + d.len)
+    ctx.stroke()
+  } else {
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  ctx.globalAlpha = 1
+}
+
 function resizeCanvas () {
   const cvs = petalCanvas.value
   if (!cvs) return
@@ -3558,6 +3752,7 @@ function resizeCanvas () {
   cvs.height = Math.round(height * dpr)
   canvasCtx.setTransform(dpr, 0, 0, dpr, 0, 0)
   seedAmbient()
+  seedPrecip()
 }
 
 function drawPetal (p, time) {
@@ -3612,6 +3807,21 @@ function frame (time) {
   }
 
   petals = petals.filter((p) => p.ambient || (p.age < p.ttl && p.alpha > 0.015 && p.x < width + 180 && p.y < height + 100))
+
+  // 雨 / 雪：同一帧里顺手画掉，多开一个 canvas 只会多一次合成
+  for (const d of precip) {
+    if (d.kind === 'rain') {
+      d.x += d.vx * dt
+      d.y += d.vy * dt
+      if (d.y > height + 40 || d.x < -80) Object.assign(d, makePrecip('rain', false))
+    } else {
+      d.x += Math.sin(seconds * d.spin + d.phase) * d.sway * dt
+      d.y += d.vy * dt
+      if (d.y > height + 14) Object.assign(d, makePrecip('snow', false))
+    }
+    drawPrecip(d)
+  }
+
   raf = requestAnimationFrame(frame)
 }
 
@@ -3682,6 +3892,30 @@ onBeforeUnmount(() => {
   background: linear-gradient(180deg, #d3c2e6 0%, #ecd2e2 42%, #fbe6dc 74%, #fff4e7 100%);
   box-shadow: 0 34px 80px -42px rgba(102, 64, 100, 0.55), var(--gloss);
   isolation: isolate;
+  /* 昼夜色片：默认透明，等于没这一层。三档只改这一个变量 */
+  --sky-tint: transparent;
+}
+.town--dusk { --sky-tint: rgba(255, 180, 140, 0.18); }
+.town--night { --sky-tint: rgba(60, 50, 110, 0.42); }
+
+/* 铺满取景框的色片；比 viewBox 大一圈，
+   是为了让 preserveAspectRatio 留出的左右天空条也一起被染色 */
+.town__tint {
+  transition: fill 0.7s var(--ease);
+}
+.town--night .town__tint {
+  mix-blend-mode: multiply;
+}
+.town--night .sky__sun { opacity: 0.1; }
+.town--dusk .sky__sun { opacity: 0.55; }
+
+/* 夜里的窗：暖黄一块，缩略图上一眼就看得出「屋里有人」 */
+.nightlights {
+  transition: opacity 0.5s var(--ease);
+}
+/* 一点点暖色溢光：缩略图缩到 1/4 时，窗格还是「亮」的一小块，而不只是亮色像素 */
+.town--night .nightlights {
+  filter: drop-shadow(0 0 4px rgba(255, 208, 132, 0.4));
 }
 
 /* 天空：右上角一枚很淡的太阳 */
@@ -3699,6 +3933,7 @@ onBeforeUnmount(() => {
   height: 300px;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(255, 246, 219, 0.85), rgba(255, 246, 219, 0) 68%);
+  transition: opacity 0.6s var(--ease);
 }
 
 .town__stage {
@@ -3895,6 +4130,50 @@ onBeforeUnmount(() => {
   font-size: 9.5px;
   letter-spacing: .1em;
   color: rgba(140, 110, 130, .62);
+}
+
+/* ---------- 昼夜 / 天气开关：左下角两枚小胶囊 ---------- */
+.ambience {
+  position: absolute;
+  z-index: 6;
+  left: 18px;
+  bottom: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.amb__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px 6px 9px;
+  border: 1px solid rgba(255, 255, 255, .86);
+  border-radius: 999px;
+  background: rgba(255, 252, 253, .7);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  box-shadow: 0 12px 26px -20px rgba(88, 50, 84, .75);
+  color: #7d5f75;
+  font: inherit;
+  cursor: pointer;
+  transition: background .25s, transform .25s var(--ease), box-shadow .25s;
+}
+.amb__btn:hover { transform: translateY(-1px); background: rgba(255, 254, 254, .88); }
+.amb__btn:active { transform: translateY(0); }
+.amb__btn:focus-visible { outline: 2px solid var(--sakura-500); outline-offset: 3px; }
+.amb__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .7);
+  transition: background .4s var(--ease);
+}
+.amb__btn b { font-size: 11.5px; font-weight: 700; letter-spacing: .04em; }
+.amb__btn em {
+  font-style: normal;
+  font-size: 8px;
+  letter-spacing: .14em;
+  color: rgba(140, 110, 130, .55);
 }
 
 .hotspots {
