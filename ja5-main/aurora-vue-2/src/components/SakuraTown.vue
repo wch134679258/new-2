@@ -257,6 +257,16 @@
                     :opacity="dc.opacity == null ? 1 : dc.opacity"
                   />
                   <path v-for="(rp, i) in p.roofParts" :key="`rf${i}`" :d="rp.d" :fill="rp.fill" />
+                  <!-- 门牌：店名首字。SVG text 会跟着 viewBox 缩，所以字号按 viewBox 算 -->
+                  <text
+                    v-for="(t, i) in p.labels"
+                    :key="`lb${i}`"
+                    class="venue__plaque"
+                    :x="t.x"
+                    :y="t.y"
+                    :font-size="t.size"
+                    text-anchor="middle"
+                  >{{ t.text }}</text>
                 </g>
               </g>
 
@@ -322,6 +332,13 @@
               <g v-else-if="p.type === 'clockTower'" class="clocktower">
                 <path :d="p.shadow" fill="#6b4b69" opacity=".16" />
                 <path v-for="(pp, i) in p.parts" :key="`ct${i}`" :d="pp.d" :fill="pp.fill" />
+              </g>
+
+              <!-- 通用道具：电线杆、自行车、回收箱这类，一个 parts 数组就够 -->
+              <g v-else-if="p.type === 'prop'">
+                <path v-for="(pp, i) in p.parts" :key="`pg${i}`" :d="pp.d"
+                      :fill="pp.fill || 'none'" :stroke="pp.stroke || 'none'"
+                      :stroke-width="pp.sw || 0" :opacity="pp.opacity == null ? 1 : pp.opacity" />
               </g>
 
               <!-- 小箱子：贩卖机 / 杂物 -->
@@ -1170,13 +1187,16 @@ const BUILDINGS = [
     key: 'home',
     label: '书店',
     en: 'BOOKSTORE',
-    // town-v2：主街北排西端，门脸正对街
-    x: 11.2, y: 5.85, w: 2.9, d: 2.2, h: 76,
+    // town-v2：主街北排西端，门脸正对街。两层，二楼带小阳台
+    x: 11.2, y: 5.85, w: 2.9, d: 2.2, h: 92,
+    floors: 2,
+    floorAt: 56,
+    balcony: { face: 'right', u0: 0.1, u1: 0.7, laundry: true },
     wallL: '#e6c9d1', wallR: '#fbeadd',
     doorFace: 'left',
     doorU: [0.07, 0.29],
     awningU: [0.04, 0.33],
-    rows: [[50, 58]],
+    rows: [[64, 80]],
     cols: [[0.42, 0.56], [0.66, 0.8]],
     awning: ['#c9556f', '#f9dde4']
   },
@@ -1225,13 +1245,16 @@ const BUILDINGS = [
     key: 'cafe',
     label: '咖啡馆',
     en: 'CAFE HANAMI',
-    // town-v2：主街北排中段，书店和便利店之间
-    x: 15.2, y: 6.35, w: 2.1, d: 1.7, h: 62,
+    // town-v2：主街北排中段，两层 + 阁楼斜窗
+    x: 15.2, y: 6.35, w: 2.1, d: 1.7, h: 88,
+    floors: 2,
+    floorAt: 56,
+    floorAt: 46,
     wallL: '#d9c3ad', wallR: '#f7e9d7',
     doorFace: 'left',
     doorU: [0.08, 0.3],
     awningU: [0.04, 0.36],
-    rows: [[44, 54]],
+    rows: [[64, 78]],
     cols: [[0.44, 0.58], [0.64, 0.78], [0.84, 0.96]],
     awning: ['#6f8f74', '#eef4ea']
   },
@@ -1291,17 +1314,29 @@ const BUILDINGS = [
   }
 ]
 
-/* 屋顶小配件：每栋楼配不同的组合（烟囱 / 天窗 / 天线） */
+/* 屋顶配件表：9 栋楼给 6 种不同的屋顶，缩略图里能靠屋顶认楼
+   tiles  瓦楞缝线 / eave 檐口再出挑 3px / gutter 雨水槽 + 落水管
+   tank   屋顶水塔 / rack 屋顶晾衣架 / parapet 女儿墙 / ac 屋顶空调
+   skylight 天窗 / chimney 烟囱 / antenna 天线 / dormer 阁楼斜窗 */
 const ROOF_KIT = {
-  home:    { chimney: true,  skylight: true,  antenna: false },
-  store:   { chimney: false, skylight: true,  antenna: true },
-  gym:     { chimney: false, skylight: false, antenna: true },
-  gamehome:{ chimney: false, skylight: true,  antenna: false },
-  cafe:    { chimney: true,  skylight: true,  antenna: false },
-  sweet:   { chimney: true,  skylight: false, antenna: false },
-  flower:  { chimney: true,  skylight: true,  antenna: false },
-  school:  { chimney: false, skylight: false, antenna: true },
-  station: { chimney: false, skylight: false, antenna: true }
+  // 书店：两层 + 雨水槽 + 落水管
+  home:     { tiles: true, eave: true,  gutter: true,  tank: false, rack: false, parapet: false, ac: false, skylight: true,  chimney: false, antenna: false },
+  // 便利店：女儿墙 + 屋顶空调 + 天线
+  store:    { tiles: true, eave: false, gutter: false, tank: false, rack: false, parapet: true,  ac: true,  skylight: false, chimney: false, antenna: true },
+  // 健身房：水塔 + 空调
+  gym:      { tiles: true, eave: true,  gutter: false, tank: true,  rack: false, parapet: false, ac: true,  skylight: false, chimney: false, antenna: true },
+  // 家：人字顶 + 烟囱（屋顶段里单独画）
+  gamehome: { tiles: true, eave: true,  gutter: false, tank: false, rack: false, parapet: false, ac: false, skylight: true,  chimney: false, antenna: false },
+  // 咖啡馆：两层 + 阁楼斜窗 + 屋脊天窗 + 落水管
+  cafe:     { tiles: true, eave: true,  gutter: true,  tank: false, rack: false, parapet: false, ac: false, skylight: true,  chimney: false, antenna: false, dormer: true },
+  // 甜品屋：屋顶晾衣架
+  sweet:    { tiles: true, eave: true,  gutter: false, tank: false, rack: true,  parapet: false, ac: false, skylight: false, chimney: true,  antenna: false },
+  // 花店：水塔 + 天窗
+  flower:   { tiles: true, eave: false, gutter: true,  tank: true,  rack: false, parapet: false, ac: false, skylight: true,  chimney: false, antenna: false },
+  // 学校：女儿墙 + 出挑（钟楼在屋顶段里单独画）
+  school:   { tiles: true, eave: true,  gutter: false, tank: false, rack: false, parapet: true,  ac: false, skylight: false, chimney: false, antenna: false },
+  // 车站：雨水槽 + 落水管 + 天线
+  station:  { tiles: true, eave: false, gutter: true,  tank: false, rack: false, parapet: false, ac: false, skylight: false, chimney: false, antenna: true }
 }
 
 function buildVenue (v) {
@@ -1319,12 +1354,35 @@ function buildVenue (v) {
   const winFn = v.doorFace === 'left' ? rightFace : leftFace
 
   const deco = []
+  const labels = []   // 门牌之类的文字，单独一层画（SVG text 不能塞进 path）
+
+  // ---- 层数：两层楼在 55% 高度处分层，二层墙色比一层浅 8% ----
+  const floors = v.floors || 1
+  // floorAt 可按楼指定：门口有大雨棚的，二层必须抬到雨棚顶上，否则阳台会插进雨棚
+  const midZ = floors > 1 ? (v.floorAt != null ? v.floorAt : Math.round(h * 0.55)) : h
+
   // 墙裙：贴地 11 高的护墙板 + 一道上沿线，墙面就有了上下两段
   const skirt = Math.max(9, Math.min(13, h * 0.17))
   deco.push({ d: faceQuad(leftFace, 0, 1, 0, skirt), fill: 'rgba(126, 88, 114, .17)' })
   deco.push({ d: faceQuad(rightFace, 0, 1, 0, skirt), fill: 'rgba(126, 88, 114, .11)' })
   deco.push({ d: faceQuad(leftFace, 0, 1, skirt, skirt + 1.4), fill: 'rgba(104, 70, 96, .26)' })
   deco.push({ d: faceQuad(rightFace, 0, 1, skirt, skirt + 1.4), fill: 'rgba(104, 70, 96, .18)' })
+
+  /* 二层：把上半段墙面重画一遍（比一层浅 8%），中间压一道腰线，
+     这样 2 层的楼在缩略图里也能看出「上面还有一层」。 */
+  if (floors > 1) {
+    const wL2 = lighten(darken(v.wallL, 0.10), 0.08)
+    const wR2 = lighten(lighten(v.wallR, 0.06), 0.08)
+    deco.unshift(
+      { d: poly([ip(x0, y1, midZ), ip(x1, y1, midZ), ip(x1, y1, h), ip(x0, y1, h)]), fill: wL2 },
+      { d: poly([ip(x1, y0, midZ), ip(x1, y1, midZ), ip(x1, y1, h), ip(x1, y0, h)]), fill: wR2 },
+      // 腰线：一道出挑的檐板
+      { d: poly([ip(x0 - 0.06, y1 + 0.06, midZ - 2.6), ip(x1 + 0.06, y1 + 0.06, midZ - 2.6), ip(x1 + 0.06, y1 + 0.06, midZ), ip(x0 - 0.06, y1 + 0.06, midZ)]), fill: '#e6d2c6' },
+      { d: poly([ip(x1 + 0.06, y0 - 0.06, midZ - 2.6), ip(x1 + 0.06, y1 + 0.06, midZ - 2.6), ip(x1 + 0.06, y1 + 0.06, midZ), ip(x1 + 0.06, y0 - 0.06, midZ)]), fill: '#d3bdb1' },
+      // 檐板底下的阴影，分界线才不是一条贴纸边
+      { d: poly([ip(x0 - 0.06, y1 + 0.06, midZ - 4.4), ip(x1 + 0.06, y1 + 0.06, midZ - 4.4), ip(x1 + 0.06, y1 + 0.06, midZ - 2.6), ip(x0 - 0.06, y1 + 0.06, midZ - 2.6)]), fill: 'rgba(120,86,106,.20)' }
+    )
+  }
 
   /* 窗户：不能整面墙都是同一个方块。
      四种样式轮换：竖中梃 / 窗台花箱 / 窗帘 / 十字窗格 */
@@ -1397,6 +1455,121 @@ function buildVenue (v) {
   {
     const [hx, hy] = doorFn(du1 - 0.05, 15)
     deco.push({ d: ellipsePath(hx, hy, 2, 2), fill: '#f2d9a8' })
+  }
+
+  /* =========================================================
+     二层阳台：出挑的板 + 栏杆 + 晒着的被单 + 二楼盆栽
+     —— face 可选 'left'（朝街的 +y 面）或 'right'（朝街尾的 +x 面）。
+        主街上两排房子只隔 1.5 格，朝街那面会被对面那排整个挡住，
+        所以阳台一般挂在右立面（沿街看得到的那侧）。
+     ========================================================= */
+  if (v.balcony && floors > 1) {
+    const b = v.balcony
+    const onRight = b.face === 'right'
+    const bu0 = b.u0 != null ? b.u0 : 0.3
+    const bu1 = b.u1 != null ? b.u1 : 0.8
+    const bd = 0.32
+    const railTop = midZ + 15
+    let slab
+    let pt
+    if (onRight) {
+      const ay = y0 + v.d * bu0
+      const by = y0 + v.d * bu1
+      slab = boxParts(x1, ay, bd, by - ay, midZ - 3.6, midZ, { l: '#e2cbbf', r: '#f0ddd1', t: '#f9ece3' })
+      pt = (t, z) => ip(x1 + bd, ay + (by - ay) * t, z)
+    } else {
+      const ax = x0 + v.w * bu0
+      const bx = x0 + v.w * bu1
+      slab = boxParts(ax, y1, bx - ax, bd, midZ - 3.6, midZ, { l: '#e2cbbf', r: '#f0ddd1', t: '#f9ece3' })
+      pt = (t, z) => ip(ax + (bx - ax) * t, y1 + bd, z)
+    }
+    deco.push(...slab)
+    // 板底阴影
+    deco.push({
+      d: poly([pt(0, midZ - 3.6), pt(1, midZ - 3.6), pt(1, midZ - 1.4), pt(0, midZ - 1.4)]),
+      fill: 'rgba(120,86,106,.22)'
+    })
+    // 栏杆：四根柱 + 顶栏
+    for (let i = 0; i <= 3; i++) {
+      const [ax2, ay2] = pt(i / 3, midZ)
+      const [bx2, by2] = pt(i / 3, railTop)
+      deco.push({ d: `M${P([ax2, ay2])}L${P([bx2, by2])}`, fill: 'none', stroke: '#8d6c78', sw: 1.6 })
+    }
+    {
+      const [r1x, r1y] = pt(0, railTop)
+      const [r2x, r2y] = pt(1, railTop)
+      deco.push({ d: `M${P([r1x, r1y])}L${P([r2x, r2y])}`, fill: 'none', stroke: '#7f5f6c', sw: 2.4 })
+    }
+    // 晒着的被单
+    if (b.laundry) {
+      const cloths = [['#ffd9e6', 0.06, 0.4], ['#cfe2f4', 0.44, 0.7], ['#ffe6b0', 0.74, 0.98]]
+      cloths.forEach(([c, t0, t1]) => {
+        deco.push({
+          d: poly([pt(t0, railTop - 0.6), pt(t1, railTop - 0.6), pt(t1, railTop - 16), pt(t0, railTop - 16)]),
+          fill: c,
+          stroke: 'rgba(130,96,110,.35)',
+          sw: 0.7
+        })
+      })
+    }
+    // 二楼盆栽
+    ;[0.22, 0.88].forEach((t, i) => {
+      const [px2, py2] = pt(t, railTop - 2)
+      deco.push({ d: poly([[px2 - 5, py2], [px2 + 5, py2], [px2 + 4, py2 + 5], [px2 - 4, py2 + 5]]), fill: '#c08f78' })
+      deco.push({ d: ellipsePath(px2 - 1.6, py2 - 3, 4.2, 3.4), fill: i ? '#f6a8bd' : '#b8cf9a' })
+      deco.push({ d: ellipsePath(px2 + 2.4, py2 - 4.2, 3.2, 2.6), fill: i ? '#ffd2dd' : '#cfe0b4' })
+    })
+  }
+
+  /* =========================================================
+     门口：地垫 + 门牌 + 伞架 / 立式菜单牌
+     ========================================================= */
+  {
+    // 地垫（只有朝街的 left 面有，右开门的楼不画）
+    if (v.doorFace !== 'right') {
+      const gx0 = x0 + v.w * (du0 - 0.05)
+      const gx1 = x0 + v.w * (du1 + 0.05)
+      deco.push({ d: poly([ip(gx0, y1 + 0.07, 0.4), ip(gx1, y1 + 0.07, 0.4), ip(gx1, y1 + 0.44, 0.4), ip(gx0, y1 + 0.44, 0.4)]), fill: '#c98f9d' })
+      deco.push({ d: poly([ip(gx0 + 0.05, y1 + 0.12, 0.6), ip(gx1 - 0.05, y1 + 0.12, 0.6), ip(gx1 - 0.05, y1 + 0.39, 0.6), ip(gx0 + 0.05, y1 + 0.39, 0.6)]), fill: v.mat || '#eeaab6' })
+    }
+    // 门牌：门头上一块小木牌 + 店名首字
+    const uc = (du0 + du1) / 2
+    deco.push({ d: faceQuad(doorFn, uc - 0.075, uc + 0.075, 33, 41.5), fill: '#fdf7f1', stroke: 'rgba(120,90,110,.45)', sw: 0.8 })
+    deco.push({ d: faceQuad(doorFn, uc - 0.075, uc + 0.075, 41.5, 42.4), fill: '#c99a86' })
+    {
+      const [qx, qy] = doorFn(uc, 36)
+      labels.push({ x: round1(qx), y: round1(qy + 3), text: v.label[0], size: 7.6 })
+    }
+    // 伞架：门外侧一个小桶 + 两把伞（学校和车站不放）
+    if (v.key !== 'school' && v.key !== 'station') {
+      const sx = x0 + v.w * (du0 - 0.08)
+      const sy = y1 + 0.22
+      deco.push(...boxParts(sx - 0.1, sy - 0.09, 0.2, 0.18, 0, 14, { l: '#9c8f86', r: '#b5a79c', t: '#6f655e' }))
+      const [ux, uy] = ip(sx, sy, 14)
+      deco.push({ d: `M${P([ux - 2, uy])}l-2 -22`, fill: 'none', stroke: '#7f6e66', sw: 1.6 })
+      deco.push({ d: `M${P([ux + 2, uy])}l2 -18`, fill: 'none', stroke: '#c26b7f', sw: 1.6 })
+    }
+    // 立式菜单牌：咖啡 / 甜品 / 花店
+    if (['cafe', 'sweet', 'flower'].includes(v.key)) {
+      const mx = x0 + v.w * (du1 + 0.09)
+      const my = y1 + 0.26
+      const [ax, ay] = ip(mx, my, 0)
+      deco.push({ d: poly([[ax - 9, ay], [ax + 9, ay], [ax + 7, ay - 24], [ax - 7, ay - 24]]), fill: '#fdf6ee', stroke: '#b08a92', sw: 0.9 })
+      deco.push({ d: poly([[ax - 7.4, ay - 1.6], [ax + 7.4, ay - 1.6], [ax + 5.8, ay - 22], [ax - 5.8, ay - 22]]), fill: '#3f4f42' })
+      deco.push({ d: `M${P([ax - 4, ay - 18])}h6M${P([ax - 4, ay - 14])}h4M${P([ax - 4, ay - 10])}h5`, fill: 'none', stroke: 'rgba(255,246,232,.75)', sw: 0.9 })
+    }
+    // 墙上空调外机：便利店 / 健身房 / 咖啡馆
+    if (['store', 'gym', 'cafe'].includes(v.key)) {
+      const au = 0.86
+      deco.push(...boxParts(
+        v.doorFace === 'left' ? x0 + v.w * au : x1,
+        y0 + v.d * 0.18, 0.36, 0.24, 24, 37,
+        { l: '#dcd9d2', r: '#eae7e0', t: '#f4f2ec' }
+      ))
+      const [fx2, fy2] = doorFn(au + 0.03, 30)
+      deco.push({ d: ellipsePath(fx2, fy2, 5.4, 5.4), fill: 'none', stroke: '#a9a49c', sw: 1.2 })
+      deco.push({ d: `M${P([fx2, fy2])}v-24`, fill: 'none', stroke: '#c2bdb4', sw: 1 })
+    }
   }
   // 小扶手：门的一侧立一根柱子，矮楼的门口就不空
   if (h >= 44) {
@@ -1754,6 +1927,132 @@ function buildVenue (v) {
       fill: '#cbbce6'
     })
 
+    // 出挑：檐口再往外 3px，屋顶「飞」出去一点
+    if (kit.eave) {
+      const lip = e + 0.09
+      roofParts.push({
+        d: poly([ip(x0 - lip, y1 + lip, trimZ1 - 1.4), ip(x1 + lip, y1 + lip, trimZ1 - 1.4), ip(x1 + lip, y1 + lip, trimZ1 + 1), ip(x0 - lip, y1 + lip, trimZ1 + 1)]),
+        fill: '#d9cdee'
+      })
+      roofParts.push({
+        d: poly([ip(x1 + lip, y0 - lip, trimZ1 - 1.4), ip(x1 + lip, y1 + lip, trimZ1 - 1.4), ip(x1 + lip, y1 + lip, trimZ1 + 1), ip(x1 + lip, y0 - lip, trimZ1 + 1)]),
+        fill: '#c2b3dc'
+      })
+      // 出挑底下的一道阴影，檐口才有厚度
+      roofParts.push({
+        d: poly([ip(x0 - lip, y1 + lip, trimZ1 - 3.4), ip(x1 + lip, y1 + lip, trimZ1 - 3.4), ip(x1 + lip, y1 + lip, trimZ1 - 1.4), ip(x0 - lip, y1 + lip, trimZ1 - 1.4)]),
+        fill: 'rgba(70,52,86,.22)'
+      })
+    }
+
+    // 雨水槽 + 落水管
+    if (kit.gutter) {
+      roofParts.push({
+        d: poly([ip(x0 - e, y1 + e, trimZ1 - 3.6), ip(x1 + e, y1 + e, trimZ1 - 3.6), ip(x1 + e, y1 + e, trimZ1 - 1.6), ip(x0 - e, y1 + e, trimZ1 - 1.6)]),
+        fill: '#8f96a8'
+      })
+      roofParts.push({
+        d: poly([ip(x0 - e, y1 + e, trimZ1 - 3.6), ip(x0 - e, y1 + e, trimZ1 - 1.6), ip(x0 - e, y1 + e + 0.02, trimZ1 - 1.6), ip(x0 - e, y1 + e + 0.02, trimZ1 - 3.6)]),
+        fill: '#a8aebd'
+      })
+      // 落水管：贴右前角一路到地面
+      const [gx, gy] = ip(x1 + e - 0.04, y1 + e - 0.04, trimZ1 - 2.6)
+      const [gx2, gy2] = ip(x1 + e - 0.04, y1 + e - 0.04, 2)
+      roofParts.push({ d: `M${P([gx, gy])}L${P([gx2, gy2])}`, fill: 'none', stroke: '#98a0ad', sw: 2.6 })
+      roofParts.push({ d: `M${P([round1(gx - 3.4), round1(gy + 22)])}h6.8M${P([round1(gx - 3.4), round1(gy2 - 24)])}h6.8`, fill: 'none', stroke: '#7d8492', sw: 1.4 })
+      // 管口
+      roofParts.push({ d: ellipsePath(gx2, gy2, 2.6, 1.4), fill: '#7d8492' })
+    }
+
+    // 女儿墙：屋顶围一圈矮墙，和「一块紫板」立刻拉开差别
+    if (kit.parapet && !v.pitched) {
+      const ph = 9
+      roofParts.push({
+        d: poly([ip(x0 - e, y1 + e, rt), ip(x1 + e, y1 + e, rt), ip(x1 + e, y1 + e, rt + ph), ip(x0 - e, y1 + e, rt + ph)]),
+        fill: '#a294c4'
+      })
+      roofParts.push({
+        d: poly([ip(x0 - e, y1 + e, rt + ph - 1.4), ip(x1 + e, y1 + e, rt + ph - 1.4), ip(x1 + e, y1 + e, rt + ph), ip(x0 - e, y1 + e, rt + ph)]),
+        fill: '#d3c5ea'
+      })
+      roofParts.push({
+        d: poly([ip(x1 + e, y0 - e, rt), ip(x1 + e, y1 + e, rt), ip(x1 + e, y1 + e, rt + ph), ip(x1 + e, y0 - e, rt + ph)]),
+        fill: '#8b7cae'
+      })
+      roofParts.push({
+        d: poly([ip(x1 + e, y0 - e, rt + ph - 1.4), ip(x1 + e, y1 + e, rt + ph - 1.4), ip(x1 + e, y1 + e, rt + ph), ip(x1 + e, y0 - e, rt + ph)]),
+        fill: '#c3b4dc'
+      })
+    }
+
+    // 屋顶水塔：四条腿 + 桶身 + 顶盖
+    if (kit.tank && !v.pitched) {
+      const tx = x0 + v.w * 0.68
+      const ty = y0 + v.d * 0.36
+      const tz = rt + 13
+      const [cx1, cy1] = ip(tx, ty, rt)
+      const [cx2, cy2] = ip(tx, ty, tz)
+      // 腿
+      for (const [ox, oy] of [[-0.16, -0.12], [0.16, -0.12], [-0.16, 0.12], [0.16, 0.12]]) {
+        const [l1x, l1y] = ip(tx + ox, ty + oy, rt)
+        const [l2x, l2y] = ip(tx + ox * 0.8, ty + oy * 0.8, tz)
+        roofParts.push({ d: `M${P([l1x, l1y])}L${P([l2x, l2y])}`, fill: 'none', stroke: '#8b7f92', sw: 1.6 })
+      }
+      // 桶身（上下两个椭圆 + 中间的矩形）
+      roofParts.push({ d: `M${P([cx2 - 12, cy2])}L${P([cx2 - 12, cy2 + 20])}A12 5.4 0 0 0 ${P([cx2 + 12, cy2 + 20])}L${P([cx2 + 12, cy2])}Z`, fill: '#cfd6e2' })
+      roofParts.push({ d: ellipsePath(cx2, cy2 + 20, 12, 5.4), fill: '#b6bfcd' })
+      roofParts.push({ d: ellipsePath(cx2, cy2, 12, 5.4), fill: '#e3e9f2' })
+      roofParts.push({ d: ellipsePath(cx2, cy2, 4.4, 2), fill: '#b6bfcd' })
+      // 一道水位的箍
+      roofParts.push({ d: `M${P([cx2 - 12, cy2 + 7])}A12 5.4 0 0 0 ${P([cx2 + 12, cy2 + 7])}`, fill: 'none', stroke: '#aab3c2', sw: 1.4 })
+    }
+
+    // 屋顶晾衣架：两根杆 + 一根线 + 两件衣服
+    if (kit.rack && !v.pitched) {
+      const ax = x0 + v.w * 0.22
+      const bx2 = x0 + v.w * 0.62
+      const ry2 = y0 + v.d * 0.42
+      const [p1x, p1y] = ip(ax, ry2, rt)
+      const [p2x, p2y] = ip(bx2, ry2, rt)
+      roofParts.push({ d: `M${P([p1x, p1y])}V${round1(p1y - 26)}M${P([p2x, p2y])}V${round1(p2y - 26)}`, fill: 'none', stroke: '#8d7f8c', sw: 1.8 })
+      roofParts.push({ d: `M${P([p1x, p1y - 25])}L${P([p2x, p2y - 25])}`, fill: 'none', stroke: '#a99aa6', sw: 1.2 })
+      ;[0.28, 0.62].forEach((t, i) => {
+        const qx = p1x + (p2x - p1x) * t
+        const qy = p1y - 25 + (p2y - p1y) * t
+        roofParts.push({ d: poly([[qx - 6, qy], [qx + 6, qy], [qx + 5, qy + 12], [qx - 5, qy + 12]]), fill: i ? '#e6eff7' : '#fdf1f4' })
+      })
+    }
+
+    // 屋顶空调机组
+    if (kit.ac && !v.pitched) {
+      const ax = x0 + v.w * 0.24
+      const ay = y0 + v.d * 0.62
+      roofParts.push(...boxParts(ax, ay, 0.5, 0.34, rt, rt + 12, { l: '#dcd9d2', r: '#eae7e0', t: '#f4f2ec' }))
+      const [fx2, fy2] = ip(ax + 0.25, ay + 0.34, rt + 6)
+      roofParts.push({ d: ellipsePath(fx2, fy2, 4.6, 4.6), fill: 'none', stroke: '#a9a49c', sw: 1.2 })
+    }
+
+    // 阁楼斜窗（咖啡馆）：屋顶上一个小老虎窗，玻璃朝前倾
+    if (kit.dormer) {
+      const dx = x0 + v.w * 0.3
+      const dy = y0 + v.d * 0.2
+      const dw = 0.74
+      const dd = 0.5
+      roofParts.push(...boxParts(dx, dy, dw, dd, rt, rt + 20, { l: '#e9d8ca', r: '#f8ecdf', t: '#fff6ec' }))
+      // 朝前的一面是斜的：上沿往里收，玻璃才有倾角
+      roofParts.push({
+        d: poly([ip(dx + 0.05, dy + dd, rt + 3), ip(dx + dw - 0.05, dy + dd, rt + 3), ip(dx + dw - 0.05, dy + dd - 0.1, rt + 17), ip(dx + 0.05, dy + dd - 0.1, rt + 17)]),
+        fill: '#bcdae8'
+      })
+      roofParts.push({
+        d: `M${P(ip(dx + dw / 2, dy + dd - 0.05, rt + 3))}V${round1(ip(dx + dw / 2, dy + dd - 0.05, rt + 17)[1])}`,
+        fill: 'none',
+        stroke: 'rgba(255,255,255,.8)',
+        sw: 1.2
+      })
+      roofParts.push({ d: poly([ip(dx - 0.04, dy - 0.04, rt + 20), ip(dx + dw + 0.04, dy - 0.04, rt + 20), ip(dx + dw + 0.04, dy + dd + 0.04, rt + 20), ip(dx - 0.04, dy + dd + 0.04, rt + 20)]), fill: '#a294c4' })
+    }
+
     // 天窗
     if (kit.skylight) {
       if (v.pitched) {
@@ -1932,6 +2231,7 @@ function buildVenue (v) {
     ao: contactAO(x0, y0, x1, y1),
     deco: deco.concat(yardProps(v)),
     roofParts,
+    labels,
     labelPos: ip((x0 + x1) / 2, (y0 + y1) / 2, h + (v.labelLift != null ? v.labelLift : (v.pitched ? 48 : 24)))
   }
 }
@@ -2476,6 +2776,7 @@ const parkVenue = {
   ao: [],
   deco: [],
   roofParts: [],
+  labels: [],
   labelPos: ip(5.9, 12.5, 66)
 }
 venues.push(parkVenue)
@@ -2920,12 +3221,121 @@ const clockVenue = {
   ao: [],
   deco: [],
   roofParts: [],
+  labels: [],
   labelPos: ip(9.4, 7.2, 120)
 }
 venues.push(clockVenue)
 
 
 /** 画家算法：x+y 越大越靠近镜头，最后画 */
+/* =========================================================
+   电线杆 + 电线：日系小镇最省成本的生活感符号
+   —— 杆立在路缘，杆间两根线，二次贝塞尔下垂 5~6px
+   ========================================================= */
+// 立在北侧路缘（y 略大于北排的 y1，才算在楼前面），x 都挑店铺之间的缝
+const POLES = [
+  { x: 6.6, y: 10.15 },   // 广场西南角
+  { x: 10.35, y: 10.6 },  // 广场东南角
+  { x: 9.9, y: 12.8 },    // 站前大道
+  { x: 10.4, y: 15.2 }    // 站前大道近车站
+]
+const POLE_H = 64
+
+const powerPoles = POLES.map((p, i) => {
+  const [bx, by] = ip(p.x, p.y)
+  const top = by - POLE_H
+  const parts = [
+    { d: ellipsePath(bx, by, 6, 2.6), fill: 'rgba(96,70,94,.18)' },
+    { d: `M${P([bx, by])}V${round1(top)}`, fill: 'none', stroke: '#8c8078', sw: 3.2 },
+    // 横担
+    { d: `M${P([round1(bx - 12), round1(top + 9)])}h24`, fill: 'none', stroke: '#7c7168', sw: 2 },
+    // 绝缘子
+    { d: ellipsePath(bx - 9, top + 7, 1.8, 2.4), fill: '#cfd6dc' },
+    { d: ellipsePath(bx + 9, top + 7, 1.8, 2.4), fill: '#cfd6dc' },
+    // 杆顶的小帽
+    { d: `M${P([round1(bx - 3), top])}h6`, fill: 'none', stroke: '#6f645c', sw: 2 }
+  ]
+  if (i === 1) {
+    // 第二根挂个变压器：一个桶 + 两道箍
+    parts.push({ d: `M${P([round1(bx + 4), round1(top + 22)])}v14`, fill: 'none', stroke: '#6f645c', sw: 1.6 })
+    parts.push({ d: `M${P([round1(bx + 4), round1(top + 22)])}h-13a3.4 3.4 0 0 0 0 6.8h13Z`, fill: '#9aa0a8' })
+    parts.push({ d: `M${P([round1(bx - 9), round1(top + 24.4)])}h13M${P([round1(bx - 9), round1(top + 28)])}h13`, fill: 'none', stroke: '#7d848c', sw: 1 })
+  }
+  return { type: 'prop', id: `pole${i}`, depth: p.x + p.y, parts }
+})
+
+/* 电线单独一项，depth 给很大 → 永远画在最前（头顶上的线本来就压着街） */
+const powerWires = (() => {
+  const parts = []
+  for (let i = 0; i < POLES.length - 1; i++) {
+    const [ax, ay] = ip(POLES[i].x, POLES[i].y)
+    const [bx, by] = ip(POLES[i + 1].x, POLES[i + 1].y)
+    const aTop = ay - POLE_H + 9
+    const bTop = by - POLE_H + 9
+    const mx = (ax + bx) / 2
+    const my = (aTop + bTop) / 2
+    for (const off of [0, -5.5]) {
+      parts.push({
+        d: `M${P([ax, round1(aTop + off)])}Q${P([round1(mx), round1(my + off + 6)])} ${P([bx, round1(bTop + off)])}`,
+        fill: 'none',
+        stroke: 'rgba(94,80,88,.5)',
+        sw: 1.1
+      })
+    }
+  }
+  // 再牵一根到钟楼方向，画面右上不至于空着
+  const [p0x, p0y] = ip(POLES[0].x, POLES[0].y)
+  parts.push({
+    d: `M${P([round1(p0x - 12), round1(p0y - POLE_H + 9)])}Q${P([round1(p0x - 70), round1(p0y - POLE_H + 26)])} ${P([round1(p0x - 130), round1(p0y - POLE_H + 6)])}`,
+    fill: 'none',
+    stroke: 'rgba(94,80,88,.42)',
+    sw: 1
+  })
+  return { type: 'prop', id: 'wires', depth: 999, parts }
+})()
+
+/* 自行车：靠墙停的三辆 */
+function bikeAt (gx, gy, tone = '#7d8b9a') {
+  const [bx, by] = ip(gx, gy)
+  return {
+    type: 'prop',
+    id: `bike-${gx}-${gy}`,
+    depth: gx + gy + 0.06,
+    parts: [
+      { d: ellipsePath(bx - 11, by - 6, 6, 4.8), fill: 'none', stroke: '#4f4a52', sw: 1.8 },
+      { d: ellipsePath(bx + 11, by - 6, 6, 4.8), fill: 'none', stroke: '#4f4a52', sw: 1.8 },
+      {
+        d: `M${P([round1(bx - 11), round1(by - 6)])}L${P([round1(bx - 2), round1(by - 17)])}` +
+           `L${P([round1(bx + 6), round1(by - 15)])}L${P([round1(bx + 11), round1(by - 6)])}` +
+           `M${P([round1(bx - 2), round1(by - 17)])}L${P([round1(bx + 2), round1(by - 6)])}` +
+           `L${P([round1(bx + 6), round1(by - 15)])}`,
+        fill: 'none', stroke: tone, sw: 1.8
+      },
+      { d: `M${P([round1(bx - 4), round1(by - 18)])}h7`, fill: 'none', stroke: '#5c5360', sw: 2.4 },
+      { d: `M${P([round1(bx + 6), round1(by - 15)])}v-7M${P([round1(bx + 2), round1(by - 22)])}h8`, fill: 'none', stroke: '#5c5360', sw: 1.8 },
+      { d: poly([[bx + 9, by - 21], [bx + 17, by - 21], [bx + 16, by - 15], [bx + 10, by - 15]]), fill: '#cbb49c' }
+    ]
+  }
+}
+const bikes = [bikeAt(14.55, 8.02), bikeAt(17.55, 8.0, '#9a8a9c'), bikeAt(10.62, 10.15, '#8a9a8e')]
+
+/* 自动贩卖机旁边的空罐回收箱 */
+const recycleBin = (() => {
+  const x0 = 7.74
+  const y0 = 10.2
+  return {
+    type: 'prop',
+    id: 'recycle',
+    depth: x0 + y0 + 0.2,
+    parts: [
+      ...boxParts(x0, y0, 0.26, 0.24, 0, 17, { l: '#8fa3b0', r: '#a7bcc8', t: '#c3d6e0' }),
+      { d: poly([ip(x0 + 0.03, y0 + 0.24, 12), ip(x0 + 0.23, y0 + 0.24, 12), ip(x0 + 0.23, y0 + 0.24, 15.4), ip(x0 + 0.03, y0 + 0.24, 15.4)]), fill: '#5e6b78' },
+      { d: ellipsePath(...ip(x0 + 0.09, y0 + 0.12, 17), 2.4, 1.6), fill: '#d8e2e8' },
+      { d: ellipsePath(...ip(x0 + 0.18, y0 + 0.16, 17), 2, 1.4), fill: '#e05a72' }
+    ]
+  }
+})()
+
 const scene = computed(() => [
   ...venues,
   ...TREES.map(buildTree),
@@ -2940,7 +3350,11 @@ const scene = computed(() => [
   clockTower,
   track,
   train,
-  walker
+  walker,
+  ...powerPoles,
+  ...bikes,
+  recycleBin,
+  powerWires
 ].sort((a, b) => a.depth - b.depth))
 
 /* =========================================================
@@ -3328,6 +3742,13 @@ onBeforeUnmount(() => {
   transform: translateY(-7px) scale(1.012);
   /* 悬停抬起时的投影也要跟光照同向（原来是 0/12 的正下方） */
   filter: drop-shadow(9px 6px 12px rgba(86, 48, 78, 0.26));
+}
+.venue__plaque {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  fill: #6b4560;
+  pointer-events: none;
 }
 .venue__halo {
   transition: opacity 0.35s var(--ease);
