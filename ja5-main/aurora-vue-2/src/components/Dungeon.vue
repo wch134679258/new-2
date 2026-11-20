@@ -373,25 +373,51 @@
             :slash-key="slashKey"
             :entering="entering"
             :pops="pops"
+            :mp="mp"
+            :mp-max="mpMax"
+            :fx="fx"
+            :fx-name="fxName"
           />
 
           <ul class="battle__log" aria-live="polite">
             <li v-for="(l, i) in battle.log" :key="`bl${i}`" :class="`is-${l.kind}`">{{ l.text }}</li>
           </ul>
 
-          <div class="battle__actions" :class="{ 'has-four': canCharm }">
-            <button type="button" class="battle__btn battle__btn--cut" :disabled="busy || over" @click="attack">
-              斩<i>攻击 {{ atk }} · 暴击 {{ crit }}%</i>
-            </button>
-            <button type="button" class="battle__btn" :disabled="busy || over || buff || focusUsed >= 2" @click="focus">
-              凝神<i>{{ buff ? '已凝神' : `必暴 · 剩 ${2 - focusUsed} 次` }}</i>
-            </button>
-            <button v-if="canCharm" type="button" class="battle__btn battle__btn--charm" :disabled="busy || over" @click="charmSkip">
-              交涉<i>魅力 {{ stats.charm }} · 跳过战斗</i>
-            </button>
-            <button type="button" class="battle__btn battle__btn--flee" :disabled="busy || over" @click="flee">
-              退开<i>回上一处</i>
-            </button>
+          <div class="battle__foot">
+            <!-- 技能栏：五个格子，图标 + 名字 + 消耗 + 冷却 -->
+            <div class="battle__skills">
+              <button
+                v-for="sk in SKILLS"
+                :key="sk.key"
+                type="button"
+                class="bskill"
+                :class="{ 'is-off': !skillReady(sk) }"
+                :style="{ '--c': sk.color }"
+                :disabled="!skillReady(sk)"
+                :title="`${sk.name} · ${sk.desc}`"
+                @click="useSkill(sk)"
+              >
+                <span class="bskill__ico">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+                       stroke-linecap="round" stroke-linejoin="round">
+                    <path :d="sk.icon" />
+                  </svg>
+                </span>
+                <b>{{ sk.name }}</b>
+                <em>{{ sk.cost }}</em>
+                <i v-if="cds[sk.key] > 0" class="bskill__cd">{{ cds[sk.key] }}</i>
+              </button>
+            </div>
+
+            <!-- 普通动作收进右侧小圆钮 -->
+            <div class="battle__mini">
+              <button type="button" class="bmini" :disabled="busy || over" title="普通攻击" @click="attack">攻</button>
+              <button type="button" class="bmini" :disabled="busy || over || buff || focusUsed >= 2"
+                      :title="buff ? '已凝神' : `凝神：下一击必暴 · 剩 ${2 - focusUsed} 次`" @click="focus">凝</button>
+              <button v-if="canCharm" type="button" class="bmini bmini--charm" :disabled="busy || over"
+                      :title="`交涉 · 魅力 ${stats.charm}`" @click="charmSkip">交</button>
+              <button type="button" class="bmini bmini--flee" :disabled="busy || over" title="退开" @click="flee">退</button>
+            </div>
           </div>
 
           <div v-if="over" class="battle__over">
@@ -430,6 +456,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { createPetalField } from '../composables/usePetals'
 import BattleScene from './dungeon/BattleScene.vue'
+import { SKILLS, mpOf, MP_REGEN, freshCooldowns } from './dungeon/skills'
 import { combat, gainMany, nudgeMood, setPanelMode, stats, STATS } from '../composables/useStats'
 
 const emit = defineEmits(['exit-realm', 'navigate'])
@@ -612,6 +639,16 @@ const entering = ref(false)   // 入场动画期间锁按钮
 let popSeq = 0
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
+/* 技能层：MP / 冷却 / 当前特效 */
+const mp = ref(0)
+const mpMax = computed(() => mpOf(stats.mystic))
+const cds = ref(freshCooldowns())
+const fx = ref(null)
+const fxName = ref('')
+let fxSeq = 0
+const mirrorGuard = ref(0)   // 镜返：下一次挨打减伤并反弹
+const bound = ref(0)         // 缚：敌人少一回合
+
 /** 在目标身上弹一个飘字；760ms 后自己清掉 */
 function popAt (target, text, kind = 'hit') {
   const id = ++popSeq
@@ -668,6 +705,12 @@ function startBattle (e) {
   meState.value = ''
   pops.value = []
   slashKey.value = 0
+  mp.value = mpMax.value
+  cds.value = freshCooldowns()
+  fx.value = null
+  fxName.value = ''
+  mirrorGuard.value = 0
+  bound.value = 0
   push('foe', `遇上 ${foe.name}。`)
   // 入场 440ms：场景压暗 + 双方从两侧滑进来，这期间按钮按不动
   entering.value = true
@@ -707,16 +750,93 @@ async function attack () {
   meState.value = ''
 
   if (battle.value.enemyHp <= 0) {
-    // 4) 死亡：分部件散开，散完才结算
-    foeState.value = 'dead'
-    await sleep(560)
-    battle.value.over = true
-    busy.value = false
-    onWin()
+    await playDeath()
     return
   }
   foeState.value = ''
   await sleep(60)
+  foeTurn()
+}
+
+/** 死亡演出：部件散开 → 结算。技能也能复用，别把这段抄三遍 */
+async function playDeath () {
+  foeState.value = 'dead'
+  await sleep(560)
+  battle.value.over = true
+  busy.value = false
+  onWin()
+}
+
+/** 技能能不能按：MP、冷却、以及「满血时别浪费祈」 */
+function skillReady (sk) {
+  if (busy.value || over.value) return false
+  if (mp.value < sk.cost || cds.value[sk.key] > 0) return false
+  if (sk.key === 'pray' && hp.value >= maxHp.value) return false
+  return true
+}
+
+/* ---------------- 技能 ---------------- */
+async function useSkill (sk) {
+  const b = battle.value
+  if (!b || busy.value || over.value) return
+  if (mp.value < sk.cost || cds.value[sk.key] > 0) return
+
+  busy.value = true
+  mp.value -= sk.cost
+  if (sk.cd) cds.value = { ...cds.value, [sk.key]: sk.cd }
+  fx.value = { key: sk.fx, id: ++fxSeq, color: sk.color }
+  fxName.value = `${sk.name} · ${sk.en}`
+  meState.value = 'attack'
+  if (sk.fx === 'slash') slashKey.value += 1
+  await sleep(sk.fx === 'pray' ? 280 : 200)
+  meState.value = ''
+
+  if (sk.key === 'pray') {
+    const heal = sk.heal + Math.round(stats.wits * 0.8)
+    const before = hp.value
+    hp.value = Math.min(maxHp.value, hp.value + heal)
+    const real = hp.value - before
+    if (real > 0) popAt('me', `+${real}`, 'heal')
+    pushBattle('buff', `祈：回复 ${real} 点生命。`)
+  } else if (sk.key === 'mirror') {
+    mirrorGuard.value = 1
+    pushBattle('buff', '三面镜子浮起来，下一次攻击会被弹回去。')
+  } else if (sk.key === 'bind') {
+    const dmg = Math.max(2, Math.round(atk.value * sk.dmg))
+    b.enemyHp -= dmg
+    bound.value = 1
+    popAt('foe', `-${dmg}`, 'hit')
+    foeState.value = 'hit'
+    pushBattle('hit', `根须缠住了它，${dmg} 点伤害。`)
+    await sleep(220)
+    foeState.value = ''
+    if (b.enemyHp <= 0) { await playDeath(); return }
+  } else if (sk.key === 'storm') {
+    for (let i = 0; i < (sk.hits || 2); i++) {
+      const dmg = Math.max(2, Math.round(atk.value * sk.dmg * (0.85 + Math.random() * 0.3)))
+      b.enemyHp -= dmg
+      popAt('foe', `-${dmg}`, 'hit')
+      foeState.value = 'hit'
+      pushBattle('hit', `花瓣划过，${dmg} 点伤害。`)
+      await sleep(180)
+      foeState.value = ''
+      if (b.enemyHp <= 0) { await playDeath(); return }
+    }
+  } else {
+    const isCrit = buff.value || Math.random() * 100 < crit.value
+    const raw = atk.value * sk.dmg * (0.9 + Math.random() * 0.2) - b.enemy.def * 0.4
+    const dmg = Math.max(2, Math.round(raw * (isCrit ? 1.7 : 1)))
+    b.enemyHp -= dmg
+    popAt('foe', `-${dmg}`, isCrit ? 'crit' : 'hit')
+    foeState.value = isCrit ? 'crit' : 'hit'
+    pushBattle(isCrit ? 'crit' : 'hit', isCrit ? `樱斩暴击！${dmg} 点伤害。` : `樱斩，${dmg} 点伤害。`)
+    buff.value = false
+    await sleep(220)
+    foeState.value = ''
+    if (b.enemyHp <= 0) { await playDeath(); return }
+  }
+
+  await sleep(80)
   foeTurn()
 }
 
@@ -734,6 +854,15 @@ async function foeTurn () {
   const b = battle.value
   if (!b || b.over) { busy.value = false; return }
   const e = b.enemy
+  // 被缚住：这回合动不了
+  if (bound.value) {
+    bound.value = 0
+    pushBattle('mute', `${e.name} 被根须缠着，这一下没能动。`)
+    await sleep(420)
+    endTurn()
+    return
+  }
+
   // 怪物先往前扑一下，再判闪避 —— 只影响观感，判定顺序与旧版一致
   foeState.value = 'attack'
   await sleep(150)
@@ -748,7 +877,19 @@ async function foeTurn () {
   }
   const isCrit = Math.random() * 100 < e.crit
   const raw = e.atk * (0.85 + Math.random() * 0.3) - def.value * 0.5
-  const dmg = Math.max(1, Math.round(raw * (isCrit ? 1.6 : 1)))
+  let dmg = Math.max(1, Math.round(raw * (isCrit ? 1.6 : 1)))
+
+  // 镜返：先削 70%，再把这部分的一半弹回去
+  if (mirrorGuard.value > 0) {
+    const blocked = Math.round(dmg * 0.7)
+    dmg -= blocked
+    const back = Math.max(1, Math.round(blocked * 0.8))
+    b.enemyHp -= back
+    popAt('foe', `-${back}`, 'hit')
+    pushBattle('buff', `镜面弹回去 ${back} 点。`)
+    mirrorGuard.value = 0
+    if (b.enemyHp <= 0) { await playDeath(); return }
+  }
   hp.value -= dmg
   pushBattle(isCrit ? 'crit' : 'hit', isCrit ? `${e.name} 重击，${dmg} 点伤害。` : `${e.name} 打来，${dmg} 点伤害。`)
   popAt('me', `-${dmg}`, isCrit ? 'crit' : 'hit')
@@ -768,6 +909,11 @@ async function foeTurn () {
 function endTurn () {
   if (!battle.value) return
   battle.value.turn += 1
+  // 每回合回一点 mp，冷却减一
+  mp.value = Math.min(mpMax.value, mp.value + MP_REGEN)
+  const next = { ...cds.value }
+  Object.keys(next).forEach((k) => { if (next[k] > 0) next[k] -= 1 })
+  cds.value = next
   busy.value = false
 }
 
@@ -1250,6 +1396,87 @@ onBeforeUnmount(() => {
 .battle__log li.is-dodge { color: #5f8f7d; }
 .battle__log li.is-buff { color: #7c62a8; }
 .battle__log li.is-foe { color: #8d6a86; }
+
+/* ---------- 技能栏 ---------- */
+.battle__foot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 78px;
+  gap: 8px;
+  align-items: start;
+}
+.battle__skills { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.bskill {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  padding: 7px 2px 6px;
+  border: 1px solid rgba(255, 255, 255, .95);
+  border-radius: 13px;
+  background: linear-gradient(180deg, #fffdfd, #f7ecf3);
+  box-shadow: 0 8px 16px -14px rgba(88, 50, 84, .9);
+  color: #7d5f75;
+  font: inherit;
+  cursor: pointer;
+  transition: transform .18s var(--ease), box-shadow .18s, opacity .18s;
+}
+.bskill::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 13px;
+  box-shadow: inset 0 0 0 1px var(--c);
+  opacity: .4;
+  pointer-events: none;
+}
+.bskill__ico { display: block; width: 21px; height: 21px; color: var(--c); }
+.bskill__ico svg { width: 100%; height: 100%; filter: drop-shadow(0 1px 1px rgba(120, 70, 110, .2)); }
+.bskill b { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; }
+.bskill em {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  font-style: normal;
+  font-size: 8px;
+  font-weight: 700;
+  color: #ad8fae;
+}
+.bskill__cd {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  background: rgba(88, 48, 78, .58);
+  color: #fff;
+  font-style: normal;
+  font-size: 15px;
+  font-weight: 700;
+  backdrop-filter: blur(1px);
+}
+.bskill.is-off { opacity: .5; }
+.bskill:not(.is-off):hover { transform: translateY(-2px); box-shadow: 0 12px 20px -12px rgba(120, 60, 100, .95); }
+.bskill:not(.is-off):active { transform: translateY(0); }
+.bskill:focus-visible { outline: 2px solid var(--sakura-500); outline-offset: 2px; }
+
+/* 普通动作：右侧 2×2 小圆钮 */
+.battle__mini { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.bmini {
+  aspect-ratio: 1;
+  border: 1px solid rgba(255, 255, 255, .95);
+  border-radius: 50%;
+  background: linear-gradient(180deg, #fffdfd, #f4e7ef);
+  box-shadow: 0 8px 16px -14px rgba(88, 50, 84, .9);
+  color: #7d5f75;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform .18s var(--ease), color .18s, opacity .18s;
+}
+.bmini:hover:not(:disabled) { transform: translateY(-2px); color: var(--sakura-700); }
+.bmini:disabled { opacity: .45; cursor: default; }
+.bmini--charm { color: #b06a86; }
+.bmini--flee { color: #8b7f96; }
 
 .battle__actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .battle__actions.has-four { grid-template-columns: repeat(2, 1fr); }

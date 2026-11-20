@@ -93,6 +93,40 @@
       </svg>
     </div>
 
+    <!-- ---------- 技能特效：每个技能一套形状 + 一套颜色 ---------- -->
+    <div v-if="fx" :key="fx.id" class="bfx" :class="`bfx--${fx.key}`" aria-hidden="true">
+      <!-- 打谁身上，谁就被染一层属性色 -->
+      <span class="bfx__tint" :style="{ background: fx.color }"></span>
+
+      <template v-if="fx.key === 'petalstorm'">
+        <i v-for="(p, i) in stormPetals" :key="`st${i}`" class="storm__p"
+           :style="{ left: p.x + '%', animationDelay: p.d + 's', animationDuration: p.t + 's',
+                     '--r': p.r + 'deg', width: p.s + 'px', height: (p.s * 0.7) + 'px', background: p.c }"></i>
+        <span class="storm__ring"></span>
+      </template>
+
+      <template v-else-if="fx.key === 'mirror'">
+        <i v-for="(m, i) in mirrors" :key="`mi${i}`" class="mirror__pane"
+           :style="{ left: m.x + '%', top: m.y + '%', animationDelay: m.d + 's' }"></i>
+        <i v-for="(b, i) in mirrorBits" :key="`mb${i}`" class="mirror__bit"
+           :style="{ left: '72%', top: '48%', animationDelay: (0.3 + i * 0.02) + 's',
+                     '--dx': b.x + 'px', '--dy': b.y + 'px', '--rot': b.r + 'deg' }"></i>
+      </template>
+
+      <template v-else-if="fx.key === 'pray'">
+        <span class="pray__beam"></span>
+        <i v-for="(d, i) in prayDots" :key="`pd${i}`" class="pray__dot"
+           :style="{ left: d.x + '%', animationDelay: d.d + 's', width: d.s + 'px', height: d.s + 'px' }"></i>
+      </template>
+
+      <svg v-else-if="fx.key === 'bind'" class="bind__svg" viewBox="0 0 480 322" preserveAspectRatio="none">
+        <path v-for="(d, i) in bindRoots" :key="`bd${i}`" :d="d" :style="{ animationDelay: i * 0.06 + 's' }" />
+      </svg>
+    </div>
+
+    <!-- 技能名：一闪而过，靠它认招式 -->
+    <div v-if="fxName" :key="`fn${fx && fx.id}`" class="bskill-name">{{ fxName }}</div>
+
     <!-- ---------- 飘字：DOM 绝对定位，比在 SVG 里算坐标简单可靠 ---------- -->
     <TransitionGroup name="pop" tag="div" class="bscene__pops" aria-live="polite">
       <span
@@ -108,12 +142,46 @@
       <span class="bscene__me-tag">{{ buff ? '凝神 · 下一击必暴' : '你' }}</span>
       <span class="bscene__me-num">{{ Math.max(0, hp) }}<i>/{{ maxHp }}</i></span>
       <span class="bscene__me-bar"><i :style="{ width: hpPercent + '%' }"></i></span>
+      <span class="bscene__mp-bar"><i :style="{ width: mpPercent + '%' }"></i></span>
     </div>
   </div>
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import FoeSprite from './FoeSprite.vue'
+
+const mpPercent = computed(() => Math.max(0, Math.min(100, (props.mp / Math.max(1, props.mpMax)) * 100)))
+
+/* 技能特效数据：花雨 46 片、镜 3 面 + 6 块碎片、祈 14 颗上升光点、缚 6 条根须 */
+const stormPetals = Array.from({ length: 46 }, (_, i) => ({
+  x: 38 + Math.random() * 58,
+  d: +(Math.random() * 0.24).toFixed(2),
+  t: +(0.58 + Math.random() * 0.42).toFixed(2),
+  r: Math.round(Math.random() * 200),
+  s: 8 + Math.round(Math.random() * 8),
+  c: i % 3 ? '#f2889f' : '#ffc7d8'
+}))
+const mirrors = [
+  { x: 64, y: 44, d: 0 },
+  { x: 78, y: 58, d: 0.05 },
+  { x: 58, y: 62, d: 0.1 }
+]
+const mirrorBits = Array.from({ length: 6 }, (_, i) => ({
+  x: Math.round(Math.cos((i / 6) * 360 * Math.PI / 180) * 52),
+  y: Math.round(Math.sin((i / 6) * 360 * Math.PI / 180) * 38),
+  r: (i * 61) % 200
+}))
+const prayDots = Array.from({ length: 14 }, (_, i) => ({
+  x: 8 + (i % 7) * 2.6,
+  d: +((i % 7) * 0.06).toFixed(2),
+  s: 4 + (i % 3) * 2
+}))
+const bindRoots = Array.from({ length: 6 }, (_, i) => {
+  const x = 292 + i * 24
+  const up = 120 + (i % 3) * 26
+  return `M${x - 26} 322 C${x - 18} ${322 - up * 0.5} ${x + 2} ${322 - up * 0.82} ${x + 12} ${322 - up}`
+})
 
 /* 远景剪影：固定的一排，别每次重排 */
 const farTrees = [
@@ -134,7 +202,7 @@ const deathPetals = Array.from({ length: 14 }, (_, i) => ({
   c: i % 3 ? '#f9b8cd' : '#ffe0ea'
 }))
 
-defineProps({
+const props = defineProps({
   foe: { type: Object, required: true },
   foeHp: { type: Number, default: 0 },
   foePercent: { type: Number, default: 0 },
@@ -149,7 +217,12 @@ defineProps({
   /** 每次出手 +1，用来重播斩击弧线 */
   slashKey: { type: Number, default: 0 },
   entering: { type: Boolean, default: false },
-  pops: { type: Array, default: () => [] }
+  pops: { type: Array, default: () => [] },
+  mp: { type: Number, default: 0 },
+  mpMax: { type: Number, default: 100 },
+  /** 当前技能特效 { key, id, color } */
+  fx: { type: Object, default: null },
+  fxName: { type: String, default: '' }
 })
 </script>
 
@@ -427,6 +500,162 @@ defineProps({
   100% { stroke-dashoffset: 0; opacity: 0; }
 }
 
+/* ---------- 技能特效层 ---------- */
+.bfx { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+
+/* 命中时目标身上那层属性色光 */
+.bfx__tint {
+  position: absolute;
+  left: 66%;
+  bottom: 46px;
+  width: 240px;
+  height: 240px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  filter: blur(26px);
+  opacity: 0;
+  animation: fx-tint .72s ease-out forwards;
+}
+@keyframes fx-tint {
+  0% { opacity: 0; transform: translateX(-50%) scale(.7); }
+  35% { opacity: .48; }
+  100% { opacity: 0; transform: translateX(-50%) scale(1.22); }
+}
+
+/* 花雨：46 片从上方斜落到怪物身上 */
+.storm__p {
+  position: absolute;
+  top: -16px;
+  border-radius: 62% 38% 62% 38%;
+  animation-name: storm-fall;
+  animation-timing-function: cubic-bezier(.35, .1, .7, 1);
+  animation-fill-mode: forwards;
+}
+@keyframes storm-fall {
+  0% { transform: translate(0, 0) rotate(0); opacity: 0; }
+  12% { opacity: .95; }
+  85% { opacity: .9; }
+  100% { transform: translate(-46px, 286px) rotate(var(--r)); opacity: 0; }
+}
+.storm__ring {
+  position: absolute;
+  left: 64%;
+  bottom: 96px;
+  width: 56px;
+  height: 56px;
+  margin-left: -28px;
+  border: 2px solid #ffd6e4;
+  border-radius: 50%;
+  opacity: 0;
+  animation: storm-ring .5s ease-out .42s both;
+}
+@keyframes storm-ring {
+  0% { transform: scale(.3); opacity: 0; }
+  40% { opacity: .9; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+
+/* 镜返：三面菱形浮起来，0.3s 后碎成六块 */
+.mirror__pane {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  background: linear-gradient(150deg, rgba(226, 242, 255, .92), rgba(142, 186, 226, .58));
+  border: 1px solid rgba(255, 255, 255, .92);
+  box-shadow: 0 0 18px rgba(150, 196, 236, .8);
+  animation: mirror-in .42s ease-out both, mirror-out .3s ease-in .34s both;
+}
+@keyframes mirror-in {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(45deg) scale(.4); }
+  60% { opacity: .95; }
+  100% { opacity: .8; transform: translate(-50%, -50%) rotate(45deg) scale(1); }
+}
+@keyframes mirror-out {
+  to { opacity: 0; transform: translate(-50%, -50%) rotate(45deg) scale(1.16); }
+}
+.mirror__bit {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: rgba(214, 238, 255, .95);
+  transform: translate(-50%, -50%);
+  animation: mirror-bit .5s ease-out both;
+}
+@keyframes mirror-bit {
+  0% { opacity: 1; transform: translate(-50%, -50%) rotate(0) scale(1); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot)) scale(.6); }
+}
+
+/* 祈：一束光柱 + 上升的粉色光点 */
+.pray__beam {
+  position: absolute;
+  left: 14%;
+  bottom: 0;
+  width: 74px;
+  height: 64%;
+  margin-left: -37px;
+  background: linear-gradient(180deg, rgba(255, 214, 232, 0) 0%, rgba(255, 214, 232, .5) 42%, rgba(255, 238, 246, .18) 100%);
+  filter: blur(3px);
+  opacity: 0;
+  animation: pray-beam .95s ease-out forwards;
+}
+@keyframes pray-beam {
+  0% { opacity: 0; transform: scaleY(.55); }
+  30% { opacity: .62; }
+  100% { opacity: 0; transform: scaleY(1.06); }
+}
+.pray__dot {
+  position: absolute;
+  bottom: 8%;
+  border-radius: 50%;
+  background: #fff0f6;
+  box-shadow: 0 0 10px rgba(255, 190, 215, .95);
+  animation: pray-rise 1.05s ease-out both;
+}
+@keyframes pray-rise {
+  0% { opacity: 0; transform: translateY(0) scale(.5); }
+  22% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-158px) scale(1.1); }
+}
+
+/* 缚：六条根须从地面长上来 */
+.bind__svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.bind__svg path {
+  fill: none;
+  stroke: #9a86b6;
+  stroke-width: 5.5;
+  stroke-linecap: round;
+  stroke-dasharray: 240;
+  stroke-dashoffset: 240;
+  filter: drop-shadow(0 0 7px rgba(154, 134, 182, .85));
+  animation: bind-grow .46s ease-out forwards;
+}
+@keyframes bind-grow { to { stroke-dashoffset: 0; } }
+
+/* 技能名：一闪而过 */
+.bskill-name {
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  transform: translateX(-50%);
+  padding: 2px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #fff;
+  background: rgba(104, 48, 78, .55);
+  text-shadow: 0 1px 3px rgba(90, 40, 70, .8);
+  pointer-events: none;
+  animation: skillname .95s ease-out forwards;
+}
+@keyframes skillname {
+  0% { opacity: 0; transform: translate(-50%, 5px); }
+  18% { opacity: 1; transform: translate(-50%, 0); }
+  72% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -5px); }
+}
+
 /* ---------- 飘字 ---------- */
 .bscene__pops { position: absolute; inset: 0; pointer-events: none; }
 .pop {
@@ -487,6 +716,21 @@ defineProps({
   height: 100%;
   border-radius: 99px;
   background: linear-gradient(90deg, #f9749f, #ffb3c6);
+  transition: width .4s var(--ease, ease);
+}
+.bscene__mp-bar {
+  grid-column: 1 / -1;
+  height: 4px;
+  margin-top: 1px;
+  border-radius: 99px;
+  background: rgba(150, 110, 132, .18);
+  overflow: hidden;
+}
+.bscene__mp-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #6f9ad4, #a9c8f0);
   transition: width .4s var(--ease, ease);
 }
 
