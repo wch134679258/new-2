@@ -905,16 +905,19 @@ const plazaSakura = (() => {
 })()
 
 const ROADS = [
-  // ---- 主街：广场东缘 → 镇东，两侧是店面 ----
-  { pts: [[10.2, 8.8], [13.4, 8.78], [16.8, 8.78], [21.2, 8.76]], w: 42 },
-  // ---- 站前大道：车站 → 广场，这是镇子的入口 ----
-  { pts: [[8.85, 11.0], [9.5, 13.2], [10.2, 15.6], [10.9, 17.6]], w: 46 },
-  // ---- 住宅巷：广场西侧，一栋房 + 一座公园，安静 ----
-  { pts: [[7.0, 8.6], [5.0, 8.7], [2.6, 8.85]], w: 34 },
-  // ---- 商业街小巷：北排两栋之间，一直通到学校 ----
-  { pts: [[14.6, 8.78], [14.6, 6.2], [14.4, 4.9], [15.1, 4.1], [15.6, 3.6]], w: 26 },
-  // ---- 公园入口 ----
-  { pts: [[7.0, 8.6], [6.9, 10.0], [6.3, 10.9]], w: 26 }
+  // ---- 主街：广场东缘 → 镇东。只做单侧临街（北排三家都是门朝街的），
+  //      南侧整条带子留给花坛/矮墙/长椅 —— 那里任何高过 25px 的东西都会把街吃掉 ----
+  { pts: [[10.2, 8.8], [13.2, 8.79], [16.6, 8.79], [20.6, 8.80]], w: 50 },
+  // ---- 中央大街：广场东南角 → 站前小广场。南北向，两侧的楼挡不住它 ----
+  { pts: [[8.7, 10.9], [8.9, 13.6], [9.4, 16.2], [10.2, 17.0]], w: 54 },
+  // ---- 住宅巷：广场西侧 → 家的门口 ----
+  { pts: [[7.0, 8.6], [5.4, 8.72], [3.2, 8.82], [1.8, 9.0]], w: 34 },
+  // ---- 学校巷：书店和咖啡馆之间那道缝，通到学校门口 ----
+  { pts: [[14.62, 8.79], [14.6, 6.1], [15.3, 5.15], [17.0, 4.85]], w: 24 },
+  // ---- 公园入口：住宅巷往南岔一条 ----
+  { pts: [[3.3, 8.78], [3.0, 9.5], [2.9, 10.05]], w: 24 },
+  // ---- 东侧小径：主街东端 → 集市，把东南角接进路网 ----
+  { pts: [[20.5, 9.25], [21.0, 11.6], [20.5, 13.8], [19.2, 16.0]], w: 24 }
 ]
 /* 路面分格缝：每隔 0.8 格横着划一道浅缝。
    —— 沿折线在「格坐标」里量距离，再转屏幕算垂线，
@@ -999,8 +1002,8 @@ const roadFurniture = (() => {
 // 花圃：沿路撒几簇，给地面加点颜色
 const flowerColors = ['#ffd4e5', '#e4c6f0', '#fff1db', '#d5e3cf', '#ffc0b0']
 const BED_SPECS = [
-  [4.0, 8.6], [9.8, 4.6], [2.6, 3.0], [7.4, 11.6], [14.6, 9.0], [6.0, 7.2],
-  [11.8, 2.4], [1.4, 15.4], [15.8, 4.0], [8.6, 6.2], [12.6, 9.2], [5.0, 16.2],
+  [4.0, 8.6], [9.8, 4.6], [4.0, 3.0], [5.2, 12.4], [14.6, 9.4], [3.4, 7.4],
+  [14.4, 2.6], [1.4, 15.4], [19.6, 4.4], [6.9, 4.9], [12.4, 9.5], [5.0, 16.2],
   [15.0, 12.6], [18.2, 15.0], [19.8, 18.0], [4.2, 19.4]
 ]
 const flowerBeds = BED_SPECS.map(([gx, gy], i) => {
@@ -1239,8 +1242,8 @@ const bridge = (() => {
 })()
 
 /* ---------- 公园：自己的一块草地 + 水池 ---------- */
-const parkSpec = { x: 4.2, y: 11.0, w: 3.4, d: 3.0 }
-const wC = ip(5.0, 12.7)
+const parkSpec = { x: 1.4, y: 9.4, w: 3.4, d: 2.8 }
+const wC = ip(2.35, 10.05)
 const park = {
   patch: poly([
     ip(parkSpec.x, parkSpec.y), ip(parkSpec.x + parkSpec.w, parkSpec.y),
@@ -1270,6 +1273,11 @@ const ROOF_LIGHT = '#8272a6'
 const ROOF_DARK = '#61528b'
 const ROOF_TOP = '#9a8cc0'
 
+/* 摆楼的判定式（布局 v3 起，所有位置都按这条走）：
+     近侧的楼要露出它身后的街面，必须满足  h ≤ 33 × (y0 − 街心 y)
+     （33 = HW，y0 是这栋楼靠街那条边到街心的格距）
+   主街街心 y=8.8，所以 y0=9.55 的楼最多只能 25px 高 —— 92 的健身房会把整条街吃掉。
+   反过来，南北向的街不受这条约束：楼和街是切向关系，轮廓盖不到旁边。 */
 const BUILDINGS = [
   {
     key: 'home',
@@ -1307,8 +1315,9 @@ const BUILDINGS = [
     key: 'gym',
     label: '健身房',
     en: 'GYM',
-    // town-v2：主街南排东端，占地最大，压在街尾
-    x: 17.2, y: 9.55, w: 3.0, d: 2.0, h: 92,
+    // 布局 v3：从街南搬到后排正中 —— 全图最高的楼必须在最远。
+    // 前排会挡住后排，反过来不会，所以 h 大的只能往后放
+    x: 10.6, y: 2.30, w: 3.0, d: 2.0, h: 92,
     wallL: '#dcc6cf', wallR: '#f6e5e1',
     doorFace: 'left',
     doorU: [0.08, 0.28],
@@ -1321,8 +1330,8 @@ const BUILDINGS = [
     key: 'gamehome',
     label: '家',
     en: 'MY ROOM',
-    // town-v2：住宅巷北侧，只有这一栋，背后是岛缘的树
-    x: 3.2, y: 6.0, w: 2.6, d: 2.0, h: 54,
+    // 布局 v3：往东让 1.2 格，西侧留给两栋民居
+    x: 4.4, y: 6.0, w: 2.4, d: 2.0, h: 54,
     wallL: '#e3cbd3', wallR: '#fbeade',
     doorFace: 'left',
     rows: [[20, 36]],
@@ -1337,7 +1346,6 @@ const BUILDINGS = [
     x: 15.2, y: 6.35, w: 2.1, d: 1.7, h: 88,
     floors: 2,
     floorAt: 56,
-    floorAt: 46,
     wallL: '#d9c3ad', wallR: '#f7e9d7',
     doorFace: 'left',
     doorU: [0.08, 0.3],
@@ -1350,10 +1358,11 @@ const BUILDINGS = [
     key: 'sweet',
     label: '甜品屋',
     en: 'SWEETS',
-    // town-v2：主街南排西端，隔着街和书店对望
-    x: 11.4, y: 9.55, w: 2.1, d: 1.7, h: 58,
+    // 布局 v3：搬到中央大街西侧，门开在 +x 面 —— 朝东，正对大街。
+    // 南排原来的门朝 +y（背离主街），那是整排「后墙对着街」的根因
+    x: 6.0, y: 11.40, w: 2.1, d: 1.7, h: 58,
     wallL: '#f0d5dd', wallR: '#fff4f1',
-    doorFace: 'left',
+    doorFace: 'right',
     doorU: [0.1, 0.32],
     awningU: [0.06, 0.38],
     rows: [[40, 50]],
@@ -1364,10 +1373,10 @@ const BUILDINGS = [
     key: 'flower',
     label: '花店',
     en: 'FLOWER',
-    // town-v2：主街南排中段（从右开门改成朝街开）
-    x: 14.4, y: 9.55, w: 1.9, d: 1.7, h: 54,
+    // 布局 v3：跟甜品屋排成一列，同样门朝东
+    x: 6.2, y: 14.20, w: 1.9, d: 1.7, h: 54,
     wallL: '#dfe4d0', wallR: '#f8faee',
-    doorFace: 'left',
+    doorFace: 'right',
     doorU: [0.05, 0.22],
     rows: [[44, 52]],
     cols: [[0.55, 0.7], [0.76, 0.92]]
@@ -1440,6 +1449,10 @@ function buildVenue (v) {
   const rightFace = (u, z) => ip(x1, y0 + v.d * u, z)
   const doorFn = v.doorFace === 'left' ? leftFace : rightFace
   const winFn = v.doorFace === 'left' ? rightFace : leftFace
+  /** 门外「out 格」处的地面点：门开在 +y 面就往外推 y，开在 +x 面就推 x */
+  const doorOut = (u, out) => (v.doorFace === 'right'
+    ? [x1 + out, y0 + v.d * u]
+    : [x0 + v.w * u, y1 + out])
 
   const deco = []
   const labels = []   // 门牌之类的文字，单独一层画（SVG text 不能塞进 path）
@@ -1615,12 +1628,17 @@ function buildVenue (v) {
      门口：地垫 + 门牌 + 伞架 / 立式菜单牌
      ========================================================= */
   {
-    // 地垫（只有朝街的 left 面有，右开门的楼不画）
+    // 地垫：两面门都要有。方向不同，画法不同
     if (v.doorFace !== 'right') {
       const gx0 = x0 + v.w * (du0 - 0.05)
       const gx1 = x0 + v.w * (du1 + 0.05)
       deco.push({ d: poly([ip(gx0, y1 + 0.07, 0.4), ip(gx1, y1 + 0.07, 0.4), ip(gx1, y1 + 0.44, 0.4), ip(gx0, y1 + 0.44, 0.4)]), fill: '#c98f9d' })
       deco.push({ d: poly([ip(gx0 + 0.05, y1 + 0.12, 0.6), ip(gx1 - 0.05, y1 + 0.12, 0.6), ip(gx1 - 0.05, y1 + 0.39, 0.6), ip(gx0 + 0.05, y1 + 0.39, 0.6)]), fill: v.mat || '#eeaab6' })
+    } else {
+      const gy0 = y0 + v.d * (du0 - 0.05)
+      const gy1 = y0 + v.d * (du1 + 0.05)
+      deco.push({ d: poly([ip(x1 + 0.07, gy0, 0.4), ip(x1 + 0.07, gy1, 0.4), ip(x1 + 0.44, gy1, 0.4), ip(x1 + 0.44, gy0, 0.4)]), fill: '#c98f9d' })
+      deco.push({ d: poly([ip(x1 + 0.12, gy0 + 0.05, 0.6), ip(x1 + 0.12, gy1 - 0.05, 0.6), ip(x1 + 0.39, gy1 - 0.05, 0.6), ip(x1 + 0.39, gy0 + 0.05, 0.6)]), fill: v.mat || '#eeaab6' })
     }
     // 门牌：门头上一块小木牌 + 店名首字
     const uc = (du0 + du1) / 2
@@ -1632,8 +1650,7 @@ function buildVenue (v) {
     }
     // 伞架：门外侧一个小桶 + 两把伞（学校和车站不放）
     if (v.key !== 'school' && v.key !== 'station') {
-      const sx = x0 + v.w * (du0 - 0.08)
-      const sy = y1 + 0.22
+      const [sx, sy] = doorOut(du0 - 0.08, 0.22)
       deco.push(...boxParts(sx - 0.1, sy - 0.09, 0.2, 0.18, 0, 14, { l: '#9c8f86', r: '#b5a79c', t: '#6f655e' }))
       const [ux, uy] = ip(sx, sy, 14)
       deco.push({ d: `M${P([ux - 2, uy])}l-2 -22`, fill: 'none', stroke: '#7f6e66', sw: 1.6 })
@@ -1641,8 +1658,7 @@ function buildVenue (v) {
     }
     // 立式菜单牌：咖啡 / 甜品 / 花店
     if (['cafe', 'sweet', 'flower'].includes(v.key)) {
-      const mx = x0 + v.w * (du1 + 0.09)
-      const my = y1 + 0.26
+      const [mx, my] = doorOut(du1 + 0.09, 0.26)
       const [ax, ay] = ip(mx, my, 0)
       deco.push({ d: poly([[ax - 9, ay], [ax + 9, ay], [ax + 7, ay - 24], [ax - 7, ay - 24]]), fill: '#fdf6ee', stroke: '#b08a92', sw: 0.9 })
       deco.push({ d: poly([[ax - 7.4, ay - 1.6], [ax + 7.4, ay - 1.6], [ax + 5.8, ay - 22], [ax - 5.8, ay - 22]]), fill: '#3f4f42' })
@@ -2867,7 +2883,7 @@ const parkVenue = {
   deco: [],
   roofParts: [],
   labels: [],
-  labelPos: ip(5.9, 12.5, 66)
+  labelPos: ip(3.1, 10.7, 62)
 }
 venues.push(parkVenue)
 
@@ -2924,18 +2940,21 @@ const TREES = [
   { x: 9.4, y: 2.2, s: 1.18 },   // 广场后方
   { x: 19.4, y: 13.4, s: 1.22 }, // 岛东南缘
   { x: 2.0, y: 16.4, s: 1.12 },  // 岛西南缘，溪流边
+  { x: 20.5, y: 9.7, s: 1.0 },   // 主街东端收口：走到这棵树就到头了
 
   // ---- 中树 rx 20~26：撑起街区之间的空隙 ----
   { x: 4.8, y: 2.4, s: 0.78 },
   { x: 8.2, y: 1.2, s: 0.72 },
-  { x: 11.6, y: 1.4, s: 0.8 },
+  { x: 14.3, y: 1.5, s: 0.8 },
   { x: 14.0, y: 3.4, s: 0.74 },
   { x: 21.2, y: 6.6, s: 0.8 },
   { x: 18.6, y: 12.0, s: 0.76 },
   { x: 13.0, y: 12.2, s: 0.72 },
-  { x: 7.0, y: 16.4, s: 0.78 },
-  { x: 17.2, y: 16.6, s: 0.82 },
+  { x: 4.2, y: 18.4, s: 0.78 },
+  { x: 19.9, y: 16.2, s: 0.82 },
   { x: 21.0, y: 10.0, s: 0.7 },
+  { x: 12.4, y: 14.8, s: 0.66 },  // 中央大街东侧，留空但不荒
+  { x: 13.2, y: 19.4, s: 0.52 },
 
   // ---- 小树 rx 12~16：填边角 ----
   { x: 3.2, y: 1.4, s: 0.46 },
@@ -2946,7 +2965,7 @@ const TREES = [
   { x: 21.4, y: 4.4, s: 0.5 },
   { x: 0.8, y: 9.4, s: 0.46 },
   { x: 1.6, y: 12.6, s: 0.5 },
-  { x: 9.0, y: 13.2, s: 0.44 },
+  { x: 11.4, y: 13.4, s: 0.44 },
   { x: 15.8, y: 13.4, s: 0.48 },
   { x: 5.4, y: 15.2, s: 0.42 },
   { x: 8.2, y: 18.6, s: 0.48 },
@@ -2964,7 +2983,10 @@ const LAMPS = [
   { x: 9.6, y: 13.0 },
   { x: 10.15, y: 15.2 },
   { x: 6.2, y: 9.4 },
-  { x: 3.6, y: 9.5 }
+  { x: 3.6, y: 9.5 },
+  { x: 20.4, y: 9.6 },   // 主街东端收口
+  { x: 17.9, y: 15.3 },  // 集市
+  { x: 21.2, y: 12.6 }   // 东侧小径拐弯
 
 ].map((l, i) => {
   const [bx, by] = ip(l.x, l.y)
@@ -2985,8 +3007,10 @@ const BENCHES = [
   { x: 15.4, y: 12.1 },
   { x: 9.9, y: 14.4 },
   { x: 9.4, y: 17.8 },
-  { x: 6.9, y: 11.2 },
-  { x: 4.6, y: 9.5 }
+  { x: 5.2, y: 11.0 },
+  { x: 4.6, y: 9.5 },
+  { x: 13.0, y: 17.3 },  // 站前小广场
+  { x: 19.9, y: 11.2 }   // 东侧草地
 
 ].map((b, i) => {
   const [bx, by] = ip(b.x, b.y)
@@ -3005,9 +3029,9 @@ const BENCHES = [
 const BUSHES = [
   // 墙根、街角、路缘：贴着有东西的地方，不撒在草地中央
   { x: 1.8, y: 7.8 }, { x: 2.4, y: 5.0 }, { x: 6.4, y: 5.2 }, { x: 9.4, y: 5.0 },
-  { x: 12.7, y: 5.0 }, { x: 18.6, y: 5.2 }, { x: 21.4, y: 7.6 }, { x: 21.8, y: 10.2 },
-  { x: 17.8, y: 11.4 }, { x: 14.0, y: 11.5 }, { x: 10.6, y: 11.2 }, { x: 8.4, y: 12.8 },
-  { x: 7.9, y: 15.6 }, { x: 12.4, y: 16.6 }, { x: 16.4, y: 14.8 }, { x: 19.6, y: 13.6 },
+  { x: 10.3, y: 5.3 }, { x: 12.7, y: 5.0 }, { x: 18.6, y: 5.2 }, { x: 21.4, y: 7.6 }, { x: 21.8, y: 10.2 },
+  { x: 17.8, y: 11.4 }, { x: 14.0, y: 11.5 }, { x: 10.6, y: 11.2 }, { x: 9.9, y: 12.6 },
+  { x: 9.9, y: 15.9 }, { x: 12.4, y: 16.6 }, { x: 16.4, y: 14.8 }, { x: 19.6, y: 13.6 },
   { x: 2.6, y: 13.4 }, { x: 1.4, y: 10.6 }, { x: 3.0, y: 16.6 }, { x: 8.8, y: 19.8 },
   { x: 13.6, y: 13.6 }, { x: 16.2, y: 9.9 }
 
@@ -3169,11 +3193,11 @@ const vending = (() => {
 
 // 凉亭：四根柱子 + 攒尖顶，摆在右后方那块空地上
 const gazebo = (() => {
-  // 跟着公园走：亭子靠公园东侧，水池在西侧
-  const x0 = 6.0
-  const y0 = 11.5
-  const w = 1.5
-  const d = 1.5
+  // 跟着公园走：水池在西侧，亭子在东侧，中间留一条走道
+  const x0 = 3.35
+  const y0 = 10.55
+  const w = 1.3
+  const d = 1.3
   const x1 = x0 + w
   const y1 = y0 + d
   const baseH = 6
@@ -3203,9 +3227,9 @@ const gazebo = (() => {
       顶层钟室两面各一个钟面，四角各一座小尖塔收顶。
    ========================================================= */
 const clockTower = (() => {
-  // 往西北挪半格：别挡住从广场往东看的主街，也别压在喷泉上
-  const cx = 7.7
-  const cy = 6.7
+  // 布局 v3：广场正北，让「钟楼—喷泉—车站」落在同一条南北轴上
+  const cx = 8.5
+  const cy = 5.6
   const x0 = cx - 1.0
   const y0 = cy - 1.0
   const parts = []
@@ -3312,7 +3336,7 @@ const clockVenue = {
   deco: [],
   roofParts: [],
   labels: [],
-  labelPos: ip(9.4, 7.2, 120)
+  labelPos: ip(9.7, 6.6, 150)
 }
 venues.push(clockVenue)
 
@@ -3426,6 +3450,208 @@ const recycleBin = (() => {
   }
 })()
 
+
+/* =========================================================
+   布局 v3 的新增场景件（都不参与点击）
+   —— 远景民居 / 集市 / 菜园 / 站前铺装 / 街心矮物
+      一律 ip() 定位，depth 取前沿 x1+y1，和建筑一起进画家算法
+   ========================================================= */
+
+/** 斜顶小屋：给西北角添两户邻居，只负责「远处还有人家」 */
+function cottage (x0, y0, w, d, h, tone) {
+  const x1 = x0 + w
+  const y1 = y0 + d
+  const mid = (y0 + y1) / 2
+  const rise = 18
+  const e = 0.12
+  return {
+    type: 'prop',
+    id: `cottage-${x0}-${y0}`,
+    depth: x1 + y1,
+    parts: [
+      { d: shadowOf(x0, y0, x1, y1, h), fill: 'rgba(107,75,105,.15)' },
+      ...boxParts(x0, y0, w, d, 0, h, tone),
+      // 人字顶：前坡 + 右山墙 + 屋脊
+      { d: poly([ip(x0 - e, y1 + e, h), ip(x1 + e, y1 + e, h), ip(x1 + e, mid, h + rise), ip(x0 - e, mid, h + rise)]), fill: ROOF_DARK },
+      { d: poly([ip(x1 + e, y0 - e, h), ip(x1 + e, y1 + e, h), ip(x1 + e, mid, h + rise)]), fill: ROOF_LIGHT },
+      { d: `M${P(ip(x0 - e, mid, h + rise))}L${P(ip(x1 + e, mid, h + rise))}`, fill: 'none', stroke: '#b3a6d6', sw: 2 },
+      // 朝 +y 的窗和门
+      { d: poly([ip(x0 + 0.26, y1 + 0.012, h * 0.36), ip(x0 + 0.72, y1 + 0.012, h * 0.36), ip(x0 + 0.72, y1 + 0.012, h * 0.74), ip(x0 + 0.26, y1 + 0.012, h * 0.74)]), fill: '#ffe4ac', opacity: 0.9 },
+      { d: poly([ip(x1 - 0.64, y1 + 0.012, 0), ip(x1 - 0.24, y1 + 0.012, 0), ip(x1 - 0.24, y1 + 0.012, h * 0.56), ip(x1 - 0.64, y1 + 0.012, h * 0.56)]), fill: '#7f5771' }
+    ]
+  }
+}
+const cottages = [
+  cottage(1.2, 2.80, 2.0, 1.8, 42, { l: '#e2d3c4', r: '#f7ece0', t: '#efe2d3' }),
+  cottage(1.3, 5.90, 2.0, 1.8, 38, { l: '#dcd8ca', r: '#f4f2e6', t: '#e9e5d6' })
+]
+
+/** 集市：三个条纹棚摊位摆成 L 形（并排就又变成「一排盒子」） */
+const market = (() => {
+  const parts = []
+  const stall = (x0, y0, w, d, c1, c2) => {
+    const x1 = x0 + w
+    const backY = y0 - 0.16
+    const frontY = y0 + d * 0.62
+    const zBack = 30
+    const zFront = 24
+    // 台面
+    parts.push(...boxParts(x0 + 0.04, y0, w - 0.08, d * 0.62, 0, 13, { l: '#cdb193', r: '#e8d3b6', t: '#dcc3a4' }))
+    // 台面上的货：两摞小箱
+    parts.push(...boxParts(x0 + 0.16, y0 + 0.14, 0.2, 0.16, 13, 18, { l: '#e0a0a8', r: '#efb9bf', t: '#f6ccd0' }))
+    parts.push(...boxParts(x0 + 0.42, y0 + 0.12, 0.18, 0.15, 13, 17, { l: '#a9c08d', r: '#bfd2a4', t: '#cfe0b6' }))
+    // 四根柱子：后两根高、前两根矮 —— 棚子才有坡度
+    ;[[x0 + 0.06, backY, zBack], [x1 - 0.06, backY, zBack], [x1 - 0.06, frontY, zFront], [x0 + 0.06, frontY, zFront]]
+      .forEach(([px, py, z1]) => parts.push(...boxParts(px - 0.035, py - 0.035, 0.07, 0.07, 0, z1, { l: '#8a7362', r: '#a08a76', t: '#b09a84' })))
+    // 条纹遮阳棚：后高前低，四道条纹
+    for (let i = 0; i < 4; i++) {
+      const t0 = i / 4
+      const t1 = (i + 1) / 4
+      parts.push({
+        d: poly([
+          ip(x0 + w * t0, backY, zBack), ip(x0 + w * t1, backY, zBack),
+          ip(x0 + w * t1, frontY, zFront), ip(x0 + w * t0, frontY, zFront)
+        ]),
+        fill: i % 2 ? c1 : c2
+      })
+    }
+    // 棚檐垂布（两段，中间开口）+ 木箱
+    parts.push({ d: poly([ip(x0, frontY, zFront), ip(x0 + w * 0.42, frontY, zFront), ip(x0 + w * 0.42, frontY, zFront - 5), ip(x0, frontY, zFront - 5)]), fill: c1 })
+    parts.push({ d: poly([ip(x0 + w * 0.58, frontY, zFront), ip(x1, frontY, zFront), ip(x1, frontY, zFront - 5), ip(x0 + w * 0.58, frontY, zFront - 5)]), fill: c1 })
+    parts.push(...boxParts(x1 - 0.34, frontY + 0.14, 0.26, 0.22, 0, 11, { l: '#b98a6f', r: '#cfa387', t: '#d8b295' }))
+    parts.push(...boxParts(x1 - 0.32, frontY + 0.16, 0.22, 0.18, 11, 20, { l: '#a87a60', r: '#bd9278', t: '#c9a184' }))
+  }
+  // 集市自己的碎石场地：没有这块，三个棚子就像摆在三块草地上
+  parts.unshift(
+    { d: poly([ip(15.1, 15.9, 0.2), ip(18.5, 15.9, 0.2), ip(18.5, 18.6, 0.2), ip(15.1, 18.6, 0.2)]), fill: '#dccbb4' },
+    { d: poly([ip(15.35, 16.1, 0.3), ip(18.25, 16.1, 0.3), ip(18.25, 18.35, 0.3), ip(15.35, 18.35, 0.3)]), fill: '#e8dac6' }
+  )
+  stall(15.4, 16.20, 1.15, 1.0, '#c9556f', '#ffe6ec')
+  stall(16.85, 16.20, 1.15, 1.0, '#6f8f74', '#eef4e6')
+  stall(15.4, 17.35, 1.15, 1.0, '#c9a15c', '#fff2d8')
+  return { type: 'prop', id: 'market', depth: 18.0 + 18.35, parts }
+})()
+
+
+/** 集市仓库：给东南角一个「有用的大件」，不然那片草地太空 */
+const shed = (() => {
+  const x0 = 18.7
+  const y0 = 16.3
+  const w = 1.5
+  const d = 1.2
+  const h = 34
+  const x1 = x0 + w
+  const y1 = y0 + d
+  const parts = [
+    { d: shadowOf(x0, y0, x1, y1, h), fill: 'rgba(107,75,105,.16)' },
+    ...boxParts(x0, y0, w, d, 0, h, { l: '#ded3c2', r: '#f2e9da', t: '#e8ddcb' }),
+    // 屋顶：一块压边的平屋面
+    ...boxParts(x0 - 0.1, y0 - 0.1, w + 0.2, d + 0.2, h, h + 5, { l: '#a898b8', r: '#c3b4d2', t: '#b9a9ca' }),
+    // 卷帘门（+y 面）
+    { d: poly([ip(x0 + 0.18, y1 + 0.01, 0), ip(x0 + 0.86, y1 + 0.01, 0), ip(x0 + 0.86, y1 + 0.01, h - 6), ip(x0 + 0.18, y1 + 0.01, h - 6)]), fill: '#b7a89a' }
+  ]
+  // 卷帘的横向纹路
+  for (let i = 1; i < 5; i++) {
+    const z = (h - 6) * (i / 5)
+    parts.push({ d: `M${P(ip(x0 + 0.18, y1 + 0.012, z))}L${P(ip(x0 + 0.86, y1 + 0.012, z))}`, fill: 'none', stroke: 'rgba(110,92,80,.28)', sw: 1 })
+  }
+  // 门口两只木箱 + 一个桶
+  parts.push(...boxParts(x1 - 0.5, y1 + 0.14, 0.26, 0.22, 0, 12, { l: '#b98a6f', r: '#cfa387', t: '#d8b295' }))
+  parts.push(...boxParts(x1 - 0.74, y1 + 0.2, 0.2, 0.18, 0, 9, { l: '#a87a60', r: '#bd9278', t: '#c9a184' }))
+  parts.push({ d: ellipsePath(...ip(x1 - 0.62, y1 + 0.62, 9), 5, 4), fill: '#8fa3b0' })
+  return { type: 'prop', id: 'shed', depth: x1 + y1, parts }
+})()
+
+/** 菜园：矮木栅栏 + 垄沟 + 几丛叶子，在车站东侧 */
+const garden = (() => {
+  const x0 = 15.6
+  const y0 = 18.7
+  const w = 2.0
+  const d = 1.5
+  const x1 = x0 + w
+  const y1 = y0 + d
+  const parts = [
+    { d: poly([ip(x0, y0, 0.2), ip(x1, y0, 0.2), ip(x1, y1, 0.2), ip(x0, y1, 0.2)]), fill: '#b9a98c', opacity: 0.55 }
+  ]
+  // 垄沟：沿着 x 方向四条
+  for (let i = 0; i < 4; i++) {
+    const gy = y0 + 0.18 + i * 0.34
+    parts.push({ d: poly([ip(x0 + 0.1, gy, 0.3), ip(x1 - 0.1, gy, 0.3), ip(x1 - 0.1, gy + 0.1, 0.3), ip(x0 + 0.1, gy + 0.1, 0.3)]), fill: '#a89274' })
+  }
+  // 菜叶：成簇，不撒满
+  for (let i = 0; i < 7; i++) {
+    const gx = x0 + 0.28 + (i % 4) * 0.42
+    const gy = y0 + 0.3 + Math.floor(i / 4) * 0.62
+    parts.push({ d: ellipsePath(...ip(gx, gy, 9), 5.2, 3.4), fill: i % 3 ? '#9dbb87' : '#b6c99a' })
+    parts.push({ d: ellipsePath(...ip(gx + 0.1, gy + 0.08, 10), 3.6, 2.4), fill: '#c3d3a8' })
+  }
+  // 栅栏：四边立柱 + 上下两道横杆
+  const post = (px, py) => parts.push(...boxParts(px - 0.03, py - 0.03, 0.06, 0.06, 0, 11, { l: '#b08a63', r: '#c8a37b', t: '#d4b491' }))
+  for (let i = 0; i <= 4; i++) {
+    post(x0 + (w / 4) * i, y0)
+    post(x0 + (w / 4) * i, y1)
+  }
+  for (let i = 0; i <= 3; i++) {
+    post(x0, y0 + (d / 3) * i)
+    post(x1, y0 + (d / 3) * i)
+  }
+  ;[[9.4, 1.2], [5.6, 1.0]].forEach(([z, th]) => {
+    parts.push({ d: poly([ip(x0, y1 + 0.03, z), ip(x1, y1 + 0.03, z), ip(x1, y1 + 0.03, z + th), ip(x0, y1 + 0.03, z + th)]), fill: '#c09a72' })
+    parts.push({ d: poly([ip(x1 + 0.03, y0, z), ip(x1 + 0.03, y1, z), ip(x1 + 0.03, y1, z + th), ip(x1 + 0.03, y0, z + th)]), fill: '#ab865f' })
+  })
+  return { type: 'prop', id: 'garden', depth: x1 + y1, parts }
+})()
+
+/** 站前小广场：三圈浅色方砖，把「中央大街 → 车站」这一段接上 */
+const stationPaving = (() => {
+  const rings = [
+    { x0: 10.0, y0: 16.5, x1: 14.8, y1: 18.05, fill: '#efe2d4' },
+    { x0: 10.3, y0: 16.72, x1: 14.5, y1: 17.9, fill: '#e3d2c3' },
+    { x0: 10.6, y0: 16.92, x1: 14.2, y1: 17.74, fill: '#f3e7da' }
+  ]
+  return {
+    type: 'prop',
+    id: 'station-paving',
+    depth: 14.8 + 18.05,
+    parts: rings.map((r) => ({
+      d: poly([ip(r.x0, r.y0, 0.2), ip(r.x1, r.y0, 0.2), ip(r.x1, r.y1, 0.2), ip(r.x0, r.y1, 0.2)]),
+      fill: r.fill
+    }))
+  }
+})()
+
+/** 主街南侧的贴地带：两段矮石墙 —— 高度压在 10，绝不挡街 */
+const streetWalls = [
+  { x0: 15.05, y0: 9.95, w: 1.75, d: 0.26 },
+  { x0: 18.25, y0: 9.95, w: 1.15, d: 0.26 }
+].map((r, i) => ({
+  type: 'prop',
+  id: `lowwall${i}`,
+  depth: (r.x0 + r.w) + (r.y0 + r.d),
+  parts: [
+    { d: shadowOf(r.x0, r.y0, r.x0 + r.w, r.y0 + r.d, 10), fill: 'rgba(107,75,105,.13)' },
+    ...boxParts(r.x0, r.y0, r.w, r.d, 0, 9, { l: '#d9cdc2', r: '#efe5da', t: '#f6efe6' }),
+    { d: poly([ip(r.x0, r.y0 + r.d, 9), ip(r.x0 + r.w, r.y0 + r.d, 9), ip(r.x0 + r.w, r.y0 + r.d, 10.4), ip(r.x0, r.y0 + r.d, 10.4)]), fill: '#c9b9ac' }
+  ]
+}))
+
+/** 邮筒：街心唯一的红色竖向物，缩略图里当个记号 */
+const mailbox = (() => {
+  const x0 = 11.3
+  const y0 = 10.35
+  return {
+    type: 'prop',
+    id: 'mailbox',
+    depth: x0 + y0 + 0.4,
+    parts: [
+      { d: shadowOf(x0, y0, x0 + 0.3, y0 + 0.3, 30), fill: 'rgba(107,75,105,.15)' },
+      ...boxParts(x0, y0, 0.3, 0.3, 0, 26, { l: '#cf5468', r: '#b03f54', t: '#e0677b' }),
+      { d: poly([ip(x0 - 0.04, y0 - 0.04, 26), ip(x0 + 0.34, y0 - 0.04, 26), ip(x0 + 0.34, y0 + 0.34, 26), ip(x0 - 0.04, y0 + 0.34, 26)]), fill: '#e0677b' },
+      { d: poly([ip(x0 + 0.06, y0 + 0.3, 17), ip(x0 + 0.24, y0 + 0.3, 17), ip(x0 + 0.24, y0 + 0.3, 21), ip(x0 + 0.06, y0 + 0.3, 21)]), fill: '#7c2f3e' }
+    ]
+  }
+})()
+
 const scene = computed(() => [
   ...venues,
   ...TREES.map(buildTree),
@@ -3444,6 +3670,13 @@ const scene = computed(() => [
   ...powerPoles,
   ...bikes,
   recycleBin,
+  ...cottages,
+  market,
+  shed,
+  garden,
+  stationPaving,
+  ...streetWalls,
+  mailbox,
   powerWires
 ].sort((a, b) => a.depth - b.depth))
 
@@ -3475,7 +3708,7 @@ function frameOf (keys, pad = 82) {
     y1 = Math.max(y1, py)
   }
   const boxes = BUILDINGS.filter((b) => keys.includes(b.key))
-  if (keys.includes('park')) boxes.push({ x: 10.0, y: 11.2, w: 3.8, d: 3.4, h: 44 })
+  if (keys.includes('park')) boxes.push({ x: parkSpec.x, y: parkSpec.y, w: parkSpec.w, d: parkSpec.d, h: 44 })
   boxes.forEach((b) => {
     const x2 = b.x + b.w
     const y2 = b.y + b.d
@@ -3503,8 +3736,8 @@ function frameOf (keys, pad = 82) {
 
 const PAGE_DEFS = [
   { key: 'all', label: '全景', en: 'OVERVIEW', keys: null, box: FULL_BOX },
-  { key: 'honmachi', label: '本町', en: 'TOWN CENTER', keys: ['home', 'store', 'gamehome', 'park'], box: null },
-  { key: 'street', label: '商店街', en: 'SHOPPING STREET', keys: ['cafe', 'sweet', 'flower', 'gym'], box: null },
+  { key: 'honmachi', label: '本町', en: 'TOWN CENTER', keys: ['home', 'gym', 'gamehome', 'park'], box: null },
+  { key: 'street', label: '商店街', en: 'SHOPPING STREET', keys: ['cafe', 'store', 'sweet', 'flower'], box: null },
   { key: 'school', label: '学校·车站', en: 'SCHOOL & STATION', keys: ['school', 'station'], box: null }
 ].map((p) => ({ ...p, box: p.box || frameOf(p.keys) }))
 
