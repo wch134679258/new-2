@@ -188,6 +188,20 @@
               {{ hiddenStats.map(h => h.label).join(' · ') }} 这几项过日子用不上，先收起来了 ——
               切到「探索战斗」就会全部出现。这里的「体力」是角色耐力，和钱包里会随时间恢复的体力值不是一回事。
             </p>
+
+            <!-- 成长来源：和实际发属性的地方读同一份 PLACES，改一处不会两边打架 -->
+            <div class="stats__places">
+              <p class="stats__sub">成长来源<span>去哪 · 做什么</span></p>
+              <ul class="stats__pgrid">
+                <li v-for="pl in PLACES" :key="pl.key">
+                  <span class="pl">
+                    <b>{{ pl.label }}</b>
+                    <em>{{ pl.act }}</em>
+                  </span>
+                  <i :style="{ color: statOf(PLACE_PRIMARY[pl.key]).color }">{{ statOf(PLACE_PRIMARY[pl.key]).label }}</i>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
       </Transition>
@@ -215,6 +229,7 @@ import {
   PANEL_MODES, panelMode, setPanelMode, visibleStats, hiddenStats, power, combat
 } from '../composables/useStats'
 import { fetchLogs } from '../api/economy'
+import { PLACES, PLACE_PRIMARY } from '../composables/usePlaces'
 
 defineProps({
   user: { type: Object, default: null },
@@ -226,6 +241,9 @@ defineProps({
   scene: { type: String, default: '' }
 })
 defineEmits(['navigate', 'logout'])
+
+/** 取一项属性的展示信息（颜色 / 名字），成长来源那一块用 */
+const statOf = (key) => STATS.find((s) => s.key === key) || { label: '', color: 'inherit' }
 
 // energyPercent 之前漏了解构：HUD 的体力条宽度一直是空的（控制台一直有 warning）
 const { wallet, refresh, startTicker, energyPercent } = useEconomy()
@@ -527,6 +545,38 @@ onMounted(() => {
 .stats__num { font-size: 13px; font-weight: 700; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
 .stats__num em { display: block; font-style: normal; font-size: 8px; font-weight: 500; letter-spacing: .1em; color: var(--faint); }
 .stats__note { margin: 18px 0 0; font-size: 10.5px; line-height: 1.8; color: var(--faint); }
+
+/* ---------- 成长来源 ---------- */
+.stats__places {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(150, 110, 132, .24);
+}
+.stats__pgrid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+.stats__pgrid li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 0 6px;
+  padding: 5px 9px;
+  border-radius: 9px;
+  background: #fbf6f8;
+}
+.stats__pgrid .pl { display: flex; align-items: baseline; gap: 5px; min-width: 0; }
+.stats__pgrid b { flex: none; font-size: 11px; font-weight: 600; color: var(--ink); }
+.stats__pgrid i { font-style: normal; font-size: 9.5px; font-weight: 700; letter-spacing: .02em; }
+.stats__pgrid em {
+  font-style: normal; font-size: 8.5px; letter-spacing: .02em; color: var(--faint);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.stats__pgrid li:last-child:nth-child(odd) { grid-column: 1 / -1; }
 
 /* ---------- 属性成长提示 ---------- */
 .stattoast {

@@ -327,6 +327,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import SiteNav from './SiteNav.vue'
 import { createPetalField } from '../composables/usePetals'
+import { gainOnce } from '../composables/usePlaces'
 
 defineProps({
   user: { type: Object, default: null }
@@ -488,6 +489,8 @@ function approach () {
   walkTimer = setTimeout(() => {
     walking.value = false
     arrived.value = true
+    // 一口气爬到千年樱下：体力 + 神秘。半小时一次，别站在原地反复上山
+    gainOnce('backhill', 30 * 60 * 1000, { vigor: 1, mystic: 1 })
     promptTimer = setTimeout(() => { promptOpen.value = true }, 260)
   }, 1700)
 }

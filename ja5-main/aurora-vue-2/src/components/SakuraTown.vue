@@ -604,6 +604,7 @@ import { motionEnabled } from '../composables/useMotion'
 import { useEconomy } from '../composables/useEconomy'
 import SiteNav from './SiteNav.vue'
 import { toast } from '../composables/useToast'
+import { gainOnce } from '../composables/usePlaces'
 
 defineProps({
   user: { type: Object, default: null }
@@ -648,6 +649,8 @@ function ringBell () {
     // 没有音频环境（或用户没交互过）就静音，只弹提示
   }
 
+  // 敲钟是「许愿」，不花钱但也不能站着连点：三分钟一次
+  gainOnce('clock', 3 * 60 * 1000, { mystic: 1, luck: 1 })
   toast.info('钟声响过，小镇慢了一拍。')
 }
 
