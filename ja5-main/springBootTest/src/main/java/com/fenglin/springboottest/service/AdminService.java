@@ -348,7 +348,9 @@ public class AdminService {
         int p = page == null || page < 1 ? 1 : page;
         int s = size == null || size < 1 ? 10 : Math.min(size, 50);
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<User>()
-                .select(User::getId, User::getName, User::getPermission, User::getCreatedAt, User::getUpdatedAt)
+                .select(User::getId, User::getName, User::getPermission,
+                        User::getMoney, User::getEnergy, User::getEnergyMax,
+                        User::getCreatedAt, User::getUpdatedAt)
                 .like(keyword != null && !keyword.isBlank(), User::getName, clean(keyword))
                 .orderByAsc(User::getPermission)
                 .orderByDesc(User::getId);
@@ -360,6 +362,10 @@ public class AdminService {
             row.put("id", user.getId());
             row.put("name", user.getName());
             row.put("permission", user.getPermission() == null ? PERMISSION_USER : user.getPermission());
+            // 作弊台需要看到当前钱包，列表里直接带上，省一次点击
+            row.put("money", user.getMoney() == null ? 0 : user.getMoney());
+            row.put("energy", user.getEnergy() == null ? 0 : user.getEnergy());
+            row.put("energyMax", user.getEnergyMax() == null || user.getEnergyMax() <= 0 ? 100 : user.getEnergyMax());
             row.put("createdAt", user.getCreatedAt() == null ? "" : user.getCreatedAt().format(TIME_FMT));
             rows.add(row);
         }

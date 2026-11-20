@@ -54,18 +54,36 @@ if (-not (Test-PortListen 3306)) {
 }
 $mysql = Find-MySql
 $articleCount = ''
+$dbErr = ''
 if ($mysql) {
     $oldEap = $ErrorActionPreference
     try {
         $ErrorActionPreference = 'Continue'
-        $out = & $mysql -uroot -p123456 -N -B -e 'SELECT COUNT(*) FROM springboot_test.article' 2>$null
-        if ($out) { $articleCount = ($out | Select-Object -First 1).ToString().Trim() }
+        # 2>&1 一起收：之前把 stderr 丢进 $null，导致「库不存在」这种关键原因被吞掉
+        $out = & $mysql -uroot -p123456 -N -B -e 'SELECT COUNT(*) FROM springboot_test.article' 2>&1
+        $lines = @($out | ForEach-Object { $_.ToString() })
+        $num = $lines | Where-Object { $_ -match '^\s*\d+\s*$' } | Select-Object -First 1
+        if ($num) {
+            $articleCount = $num.Trim()
+        } else {
+            $dbErr = ($lines | Where-Object { $_ -match 'ERROR' } | Select-Object -First 1)
+            if (-not $dbErr) { $dbErr = ($lines | Where-Object { $_.Trim() } | Select-Object -First 1) }
+        }
     } catch {} finally { $ErrorActionPreference = $oldEap }
 }
 if ($articleCount -and $articleCount -ne '0') {
     Say "      MySQL 正常，文章 $articleCount 篇" 'Green'
+} elseif ($dbErr -match 'Unknown database') {
+    Say '      [错误] 数据库 springboot_test 不存在' 'Red'
+    Say '             请先双击 ja5-main\恢复数据.bat 建库并导入数据' 'Red'
+} elseif ($dbErr -match "doesn't exist|does not exist") {
+    Say '      [错误] 表结构缺失（springboot_test.article 不存在）' 'Red'
+    Say '             请先双击 ja5-main\恢复数据.bat 补齐表结构' 'Red'
+} elseif ($articleCount -eq '0') {
+    Say '      [警告] 库在但没有文章数据，建议执行 恢复数据.bat 导入' 'Yellow'
 } else {
-    Say '      MySQL 已启动；文章数据自检未通过（不阻塞登录测试）' 'Yellow'
+    if ($dbErr) { Say "      MySQL 自检异常：$dbErr" 'Yellow' }
+    else { Say '      MySQL 已启动；文章数据自检未通过（不阻塞登录测试）' 'Yellow' }
 }
 
 Say '[2/4] 启动后端...'

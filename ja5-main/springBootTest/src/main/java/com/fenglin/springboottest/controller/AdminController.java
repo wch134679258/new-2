@@ -3,10 +3,12 @@ package com.fenglin.springboottest.controller;
 import com.fenglin.springboottest.dto.AdminArticleRequest;
 import com.fenglin.springboottest.dto.AdminCategoryRequest;
 import com.fenglin.springboottest.dto.AdminTagRequest;
+import com.fenglin.springboottest.dto.CheatRequest;
 import com.fenglin.springboottest.dto.LoginRequest;
 import com.fenglin.springboottest.dto.PermissionUpdateRequest;
 import com.fenglin.springboottest.service.AdminService;
 import com.fenglin.springboottest.service.AuthService;
+import com.fenglin.springboottest.service.CheatService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,10 +33,12 @@ public class AdminController {
 
     private final AuthService authService;
     private final AdminService adminService;
+    private final CheatService cheatService;
 
-    public AdminController(AuthService authService, AdminService adminService) {
+    public AdminController(AuthService authService, AdminService adminService, CheatService cheatService) {
         this.authService = authService;
         this.adminService = adminService;
+        this.cheatService = cheatService;
     }
 
     @PostMapping("/login")
@@ -160,5 +164,35 @@ public class AdminController {
             @PathVariable Long id,
             @RequestBody PermissionUpdateRequest req) {
         return adminService.updatePermission(auth, id, req.getPermission());
+    }
+
+    /**
+     * 作弊台：读取某个账号的钱包现状（金币 / 体力 / 上限 / 已购书 / 最近流水）。
+     * 只读，不会推进体力恢复的锚点。
+     */
+    @GetMapping("/users/{id}/wallet")
+    public Map<String, Object> userWallet(
+            @RequestHeader(value = "Authorization", required = false) String auth,
+            @PathVariable Long id) {
+        return cheatService.wallet(auth, id);
+    }
+
+    /**
+     * 作弊台：直接给某个账号加金币、改体力与体力上限。
+     *
+     * <pre>
+     * POST /api/admin/users/2/cheat
+     * { "moneyDelta": 1000 }                 金币 +1000
+     * { "money": 9999, "energy": 100 }       金币设为 9999、体力设为 100
+     * { "energyMax": 300, "resetSleep": true } 上限 300、清掉今天的睡觉限制
+     * { "unlockAll": true }                  一键解锁全部付费书目
+     * </pre>
+     */
+    @PostMapping("/users/{id}/cheat")
+    public Map<String, Object> cheat(
+            @RequestHeader(value = "Authorization", required = false) String auth,
+            @PathVariable Long id,
+            @RequestBody CheatRequest req) {
+        return cheatService.apply(auth, id, req);
     }
 }

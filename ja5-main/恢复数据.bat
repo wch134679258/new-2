@@ -56,13 +56,14 @@ echo [2/4] 重建测试账号 verify用户 / abc12345 ...
 "!MYSQL!" -uroot -p123456 --default-character-set=utf8mb4 springboot_test -e "INSERT INTO user (id, name, password) VALUES (2, 'verify用户', '$2a$10$5jB/x.hdAEwoToMk.Kj3ceSxrApIi/tzm8zMaWxf7YhB04gqhj7lW') ON DUPLICATE KEY UPDATE password = VALUES(password);" >nul 2>nul
 if errorlevel 1 set "FAILED=1"
 
-echo [3/4] 升级角色列并授予管理员（migrate-admin.sql）...
+echo [3/4] 授予管理员权限（migrate-permission.sql）...
+rem  migrate-admin.sql 已废弃（只写 role 列，代码只认 permission），改用 migrate-permission.sql
 rem  依赖上一步的账号已存在，否则没人可提权
-"!MYSQL!" -uroot -p123456 --default-character-set=utf8mb4 < "springBootTest\migrate-admin.sql" >nul 2>nul
+"!MYSQL!" -uroot -p123456 --default-character-set=utf8mb4 < "springBootTest\migrate-permission.sql" >nul 2>nul
 if errorlevel 1 set "FAILED=1"
 
 echo [4/4] 校验数据量...
-"!MYSQL!" -uroot -p123456 --default-character-set=utf8mb4 springboot_test -e "SELECT (SELECT COUNT(*) FROM user) AS 用户数, (SELECT COUNT(*) FROM user WHERE role=1) AS 管理员数, (SELECT COUNT(*) FROM article) AS 文章数, (SELECT COUNT(*) FROM category) AS 分类数, (SELECT COUNT(*) FROM tag) AS 标签数;"
+"!MYSQL!" -uroot -p123456 --default-character-set=utf8mb4 springboot_test -e "SELECT (SELECT COUNT(*) FROM user) AS 用户数, (SELECT COUNT(*) FROM user WHERE permission=0) AS 管理员数, (SELECT COUNT(*) FROM article) AS 文章数, (SELECT COUNT(*) FROM category) AS 分类数, (SELECT COUNT(*) FROM tag) AS 标签数;"
 
 echo.
 if "!FAILED!"=="1" (

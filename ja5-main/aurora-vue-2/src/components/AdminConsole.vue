@@ -211,7 +211,7 @@
             <div>
               <p class="eyebrow">MEMBERS · 用户权限</p>
               <h1>用户管理</h1>
-              <p>只有管理员可以进入后台；系统始终保留至少一名管理员。</p>
+              <p>只有管理员可以进入后台，且系统始终保留至少一名管理员；「作弊台」可直接给任意账号加金币、改体力与上限。</p>
             </div>
           </div>
 
@@ -227,8 +227,8 @@
             <div v-if="usersLoading" class="loading-box">正在加载用户…</div>
             <div v-else-if="!users.length" class="empty-box"><p>没有找到用户</p></div>
             <div v-else class="table-scroll">
-              <table>
-                <thead><tr><th>昵称</th><th>权限</th><th>注册时间</th><th>操作</th></tr></thead>
+              <table class="users-table">
+                <thead><tr><th>昵称</th><th>权限</th><th>金币</th><th>体力</th><th>注册时间</th><th>操作</th></tr></thead>
                 <tbody>
                   <tr v-for="row in users" :key="row.id">
                     <td>
@@ -240,18 +240,23 @@
                         {{ row.permission === 0 ? '管理员' : '默认用户' }}
                       </span>
                     </td>
+                    <td class="wallet-cell">{{ fmtNum(row.money) }}</td>
+                    <td class="wallet-cell">{{ row.energy }}<i> / {{ row.energyMax }}</i></td>
                     <td class="muted">{{ row.createdAt }}</td>
                     <td>
-                      <button
-                        v-if="row.id !== user.id"
-                        class="permission-btn"
-                        type="button"
-                        :disabled="row._saving"
-                        @click="togglePermission(row)"
-                      >
-                        {{ row.permission === 0 ? '取消管理员' : '设为管理员' }}
-                      </button>
-                      <span v-else class="muted">不可修改自己</span>
+                      <div class="row-actions">
+                        <button class="cheat-btn" type="button" @click="openCheat(row)">作弊台</button>
+                        <button
+                          v-if="row.id !== user.id"
+                          class="permission-btn"
+                          type="button"
+                          :disabled="row._saving"
+                          @click="togglePermission(row)"
+                        >
+                          {{ row.permission === 0 ? '取消管理员' : '设为管理员' }}
+                        </button>
+                        <span v-else class="muted">不可修改自己</span>
+                      </div>
                     </td>
                   </tr>
                 </tbody>
@@ -341,12 +346,118 @@
         </section>
       </div>
     </Transition>
+
+    <!-- 作弊台：给某个账号加金币 / 改属性 -->
+    <Transition name="fade">
+      <div v-if="cheatOpen" class="modal-mask" @click.self="closeCheat">
+        <section class="modal cheat-modal" role="dialog" aria-modal="true" aria-label="作弊台">
+          <header class="modal__head">
+            <div>
+              <p class="eyebrow">CHEAT · 作弊台</p>
+              <h2>{{ cheatTarget ? cheatTarget.name : '' }}</h2>
+            </div>
+            <button type="button" class="modal__close" @click="closeCheat">×</button>
+          </header>
+
+          <div class="modal__body">
+            <div v-if="cheatLoading && !cheatWallet" class="loading-box">正在读取钱包…</div>
+            <template v-else-if="cheatWallet">
+              <div class="cheat-current">
+                <div><span>金币</span><b>{{ fmtNum(cheatWallet.money) }}</b></div>
+                <div><span>体力</span><b>{{ cheatWallet.energy }}<i>/{{ cheatWallet.energyMax }}</i></b></div>
+                <div><span>已购书</span><b>{{ cheatWallet.ownedCount }}<i>本</i></b></div>
+                <div><span>今日已睡</span><b class="cheat-current__text">{{ cheatWallet.sleptToday ? '是' : '否' }}</b></div>
+              </div>
+
+              <div class="cheat-mode" role="group" aria-label="修改方式">
+                <button
+                  type="button"
+                  :class="{ 'cheat-mode__btn--on': cheatMode === 'add' }"
+                  class="cheat-mode__btn"
+                  @click="cheatMode = 'add'"
+                >加减（在当前值上变动）</button>
+                <button
+                  type="button"
+                  :class="{ 'cheat-mode__btn--on': cheatMode === 'set' }"
+                  class="cheat-mode__btn"
+                  @click="cheatMode = 'set'"
+                >设定（直接改成这个数）</button>
+              </div>
+
+              <form @submit.prevent="applyCheat">
+                <div class="form-grid">
+                  <label class="form-row"><span>{{ cheatMode === 'set' ? '金币设为' : '金币增减' }}</span>
+                    <input
+                      v-model="cheatForm.money"
+                      type="number"
+                      :placeholder="cheatMode === 'set' ? '留空则不改' : '例如 500，扣钱填 -100'"
+                    />
+                  </label>
+                  <label class="form-row"><span>{{ cheatMode === 'set' ? '体力设为' : '体力增减' }}</span>
+                    <input
+                      v-model="cheatForm.energy"
+                      type="number"
+                      :placeholder="cheatMode === 'set' ? '0 ~ 体力上限' : '例如 30'"
+                    />
+                  </label>
+                  <label class="form-row"><span>{{ cheatMode === 'set' ? '体力上限设为' : '体力上限增减' }}</span>
+                    <input
+                      v-model="cheatForm.energyMax"
+                      type="number"
+                      :placeholder="cheatMode === 'set' ? '留空则不改' : '例如 20'"
+                    />
+                  </label>
+                </div>
+
+                <div class="cheat-chips">
+                  <span>金币快捷</span>
+                  <button type="button" @click="quickMoney(100)">+100</button>
+                  <button type="button" @click="quickMoney(1000)">+1000</button>
+                  <button type="button" @click="quickMoney(10000)">+10000</button>
+                  <button type="button" @click="fillEnergyFull">体力加满</button>
+                </div>
+
+                <label class="cheat-check">
+                  <input v-model="cheatForm.resetSleep" type="checkbox" />
+                  <span>清空「今天已睡」限制，可以再睡一觉</span>
+                </label>
+                <label class="cheat-check">
+                  <input v-model="cheatForm.unlockAll" type="checkbox" />
+                  <span>一键把全部付费书目放进书架（0 元成交）</span>
+                </label>
+
+                <div v-if="cheatWallet.logs && cheatWallet.logs.length" class="cheat-logs">
+                  <p>最近流水</p>
+                  <ul>
+                    <li v-for="log in cheatWallet.logs.slice(0, 4)" :key="log.id">
+                      <span class="cheat-logs__time">{{ log.createdAt }}</span>
+                      <span class="cheat-logs__detail">{{ log.detail }}</span>
+                      <span class="cheat-logs__delta" :class="{ 'cheat-logs__delta--up': log.delta > 0 }">
+                        {{ log.delta > 0 ? '+' + log.delta : log.delta }}
+                      </span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="modal__foot">
+                  <button class="ghost-btn" type="button" @click="closeCheat">关闭</button>
+                  <button class="primary-btn" type="submit" :disabled="cheatSaving">
+                    {{ cheatSaving ? '执行中…' : '执行作弊' }}
+                  </button>
+                </div>
+              </form>
+            </template>
+          </div>
+        </section>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import {
+  cheatUser,
   createAdminArticle,
   createAdminCategory,
   createAdminTag,
@@ -359,6 +470,7 @@ import {
   fetchAdminStats,
   fetchAdminTags,
   fetchAdminUsers,
+  fetchUserWallet,
   updateAdminArticle,
   updateAdminCategory,
   updateAdminTag,
@@ -382,6 +494,7 @@ const tab = ref('overview')
 
 const userName = computed(() => (props.user && props.user.name) || '管理员')
 const avatarText = computed(() => userName.value.slice(0, 1).toUpperCase())
+const fmtNum = (n) => Number(n || 0).toLocaleString('zh-CN')
 const todayText = new Intl.DateTimeFormat('zh-CN', {
   year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
 }).format(new Date())
@@ -635,12 +748,125 @@ async function togglePermission (row) {
   }
 }
 
+// ---------- 作弊台 ----------
+//  只做一件事：把「金币 / 体力 / 上限 / 睡觉冷却 / 书架」直接改成想要的值。
+//  服务端仍会校验调用者是管理员，并写一条 reason=cheat 的金币流水。
+const cheatOpen = ref(false)
+const cheatTarget = ref(null)
+const cheatWallet = ref(null)
+const cheatLoading = ref(false)
+const cheatSaving = ref(false)
+// add = 在当前值上加减（最常用）；set = 直接设定成某个值
+const cheatMode = ref('add')
+const cheatForm = reactive({ money: '', energy: '', energyMax: '', resetSleep: false, unlockAll: false })
+
+async function openCheat (row) {
+  cheatTarget.value = { id: row.id, name: row.name }
+  cheatMode.value = 'add'
+  Object.assign(cheatForm, { money: '', energy: '', energyMax: '', resetSleep: false, unlockAll: false })
+  // 先用列表里的数据占位，避免打开瞬间闪一下空白
+  cheatWallet.value = {
+    id: row.id,
+    name: row.name,
+    money: row.money,
+    energy: row.energy,
+    energyMax: row.energyMax,
+    ownedCount: null,
+    sleptToday: false,
+    logs: []
+  }
+  cheatOpen.value = true
+  await loadCheatWallet()
+}
+
+async function loadCheatWallet () {
+  if (!cheatTarget.value) return
+  cheatLoading.value = true
+  try {
+    cheatWallet.value = await fetchUserWallet(cheatTarget.value.id)
+  } catch (e) {
+    toast.error(e.message || '钱包读取失败')
+  } finally {
+    cheatLoading.value = false
+  }
+}
+
+function closeCheat () {
+  if (!cheatSaving.value) cheatOpen.value = false
+}
+
+/** 快捷加金币：加减模式在当前输入值上继续加，设定模式就直接填入 */
+function quickMoney (n) {
+  const cur = Number(cheatForm.money || 0)
+  cheatForm.money = cheatMode.value === 'add' ? cur + n : n
+}
+
+/** 一键把体力填成上限（上限留空时用当前上限） */
+function fillEnergyFull () {
+  const max = Number(cheatForm.energyMax || (cheatWallet.value && cheatWallet.value.energyMax) || 0)
+  if (!max) return
+  cheatForm.energy = max
+}
+
+/** 空字符串 = 不改；其余转成整数（后端只认 int） */
+function toInt (value) {
+  if (value === '' || value === null || value === undefined) return null
+  const n = Number(value)
+  return Number.isFinite(n) ? Math.trunc(n) : null
+}
+
+function buildCheatPayload () {
+  const setMode = cheatMode.value === 'set'
+  const payload = {}
+  const money = toInt(cheatForm.money)
+  // 加减模式下 0 等于没改，直接跳过；设定模式下 0 是合法目标（清零金币）
+  if (money !== null && (setMode || money !== 0)) payload[setMode ? 'money' : 'moneyDelta'] = money
+  const energy = toInt(cheatForm.energy)
+  if (energy !== null && (setMode || energy !== 0)) payload[setMode ? 'energy' : 'energyDelta'] = energy
+  const energyMax = toInt(cheatForm.energyMax)
+  if (energyMax !== null && (setMode || energyMax !== 0)) payload[setMode ? 'energyMax' : 'energyMaxDelta'] = energyMax
+  if (cheatForm.resetSleep) payload.resetSleep = true
+  if (cheatForm.unlockAll) payload.unlockAll = true
+  return payload
+}
+
+function cheatSummary (data, payload) {
+  const parts = []
+  if (data.money !== data.beforeMoney) parts.push(`金币 ${fmtNum(data.beforeMoney)} → ${fmtNum(data.money)}`)
+  if (data.energyMax !== data.beforeEnergyMax) parts.push(`上限 ${data.beforeEnergyMax} → ${data.energyMax}`)
+  if (data.energy !== data.beforeEnergy) parts.push(`体力 ${data.beforeEnergy} → ${data.energy}`)
+  if (payload.resetSleep) parts.push('睡觉冷却已清空')
+  if (data.unlocked) parts.push(`解锁 ${data.unlocked} 本书`)
+  return parts.length ? '已作弊：' + parts.join('，') : '已执行'
+}
+
+async function applyCheat () {
+  if (!cheatTarget.value) return
+  const payload = buildCheatPayload()
+  if (!Object.keys(payload).length) {
+    toast.error('先填一个要改的数值，或勾选下面两项')
+    return
+  }
+  cheatSaving.value = true
+  try {
+    const data = await cheatUser(cheatTarget.value.id, payload)
+    cheatWallet.value = data
+    // 输入复位，避免手滑再点一次又把钱加一遍
+    Object.assign(cheatForm, { money: '', energy: '', energyMax: '', resetSleep: false, unlockAll: false })
+    toast.success(cheatSummary(data, payload))
+    await Promise.all([loadUsers(userPage.value), loadStats()])
+  } catch (e) {
+    toast.error(e.message || '作弊失败')
+  } finally {
+    cheatSaving.value = false
+  }
+}
+
 function switchTab (key) {
   tab.value = key
   if (key === 'articles' && !articles.value.length) loadArticles(1)
   if (key === 'users' && !users.value.length) loadUsers(1)
 }
-
 onMounted(async () => {
   await Promise.all([loadStats(), loadArticles(1), loadTaxonomy(), loadUsers(1)])
 })
@@ -929,6 +1155,8 @@ onMounted(async () => {
 }
 .table-scroll { overflow-x: auto; }
 table { width: 100%; min-width: 720px; border-collapse: collapse; }
+/* 用户表多了金币 / 体力两列，给宽一点，别把「注册时间」挤成两行 */
+.users-table { min-width: 860px; }
 th {
   padding: 12px 15px;
   border-bottom: 1px solid var(--line-soft);
@@ -1017,6 +1245,109 @@ td small { display: block; max-width: 340px; margin-top: 4px; overflow: hidden; 
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 .fade-enter-from .modal, .fade-leave-to .modal { transform: translateY(12px) scale(.98); }
 
+/* ============================================================
+   作弊台
+   —— 金币 / 体力用等宽数字，改完前后对比一眼能看出来
+   ============================================================ */
+.wallet-cell { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wallet-cell i { color: var(--faint); font-size: 9.5px; font-style: normal; }
+/* 注意：这里的祖先选择器不能省 —— `.row-actions button` 的重置规则
+   （border:0 / background:transparent / padding:3px 0）特异性更高，
+   只写 .cheat-btn 会被它盖掉，金色小按钮就变成一段普通文字了 */
+.row-actions .cheat-btn {
+  padding: 5px 10px;
+  border: 1px solid rgba(226, 186, 122, .72);
+  border-radius: 8px;
+  background: linear-gradient(120deg, rgba(255, 247, 228, .96), rgba(255, 233, 241, .9));
+  color: #a1701f;
+  font: inherit;
+  font-size: 10.5px;
+  cursor: pointer;
+  transition: .2s;
+}
+.row-actions .cheat-btn:hover {
+  border-color: #d8a65b;
+  background: #fff9ea;
+  color: #8a5c16;
+  text-decoration: none;
+}
+
+.cheat-modal { width: min(620px, 100%); }
+.cheat-modal .form-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cheat-current { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+.cheat-current > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 11px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, .62);
+}
+.cheat-current span { color: var(--faint); font-size: 9.5px; letter-spacing: .05em; }
+.cheat-current b {
+  color: var(--sakura-700);
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.cheat-current b i { margin-left: 2px; color: var(--faint); font-size: 9.5px; font-style: normal; }
+.cheat-current .cheat-current__text { font-family: inherit; font-size: 13px; }
+
+.cheat-mode { display: flex; gap: 5px; padding: 4px; border-radius: 12px; background: rgba(246, 233, 241, .85); }
+.cheat-mode__btn {
+  flex: 1;
+  height: 32px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 10.5px;
+  cursor: pointer;
+  transition: .2s;
+}
+.cheat-mode__btn--on { background: #fff; color: var(--sakura-700); font-weight: 600; box-shadow: 0 6px 14px -10px rgba(129, 75, 115, .75); }
+
+.cheat-chips { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.cheat-chips > span { color: var(--faint); font-size: 9.5px; }
+.cheat-chips button {
+  padding: 5px 9px;
+  border: 1px dashed rgba(219, 180, 205, .92);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .6);
+  color: var(--sakura-600);
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+  transition: .18s;
+}
+.cheat-chips button:hover { border-style: solid; background: #fff; color: var(--sakura-700); }
+
+.cheat-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 11px;
+  border: 1px solid var(--line-soft);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, .5);
+  color: var(--muted);
+  font-size: 10.5px;
+  cursor: pointer;
+}
+.cheat-check input { width: 14px; height: 14px; accent-color: var(--sakura-500); cursor: pointer; }
+
+.cheat-logs { padding: 10px 12px; border: 1px solid var(--line-soft); border-radius: 12px; background: rgba(255, 255, 255, .55); }
+.cheat-logs p { margin: 0 0 7px; color: var(--faint); font-size: 9.5px; letter-spacing: .05em; }
+.cheat-logs ul { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.cheat-logs li { display: grid; grid-template-columns: 78px minmax(0, 1fr) auto; align-items: center; gap: 8px; color: var(--muted); font-size: 10px; }
+.cheat-logs__time { color: var(--faint); font-variant-numeric: tabular-nums; }
+.cheat-logs__detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cheat-logs__delta { color: #9a8f9c; font-variant-numeric: tabular-nums; }
+.cheat-logs__delta--up { color: var(--sakura-600); font-weight: 600; }
+
 @media (max-width: 1080px) {
   .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .overview-grid { grid-template-columns: 1fr; }
@@ -1045,6 +1376,9 @@ td small { display: block; max-width: 340px; margin-top: 4px; overflow: hidden; 
   .toolbar { align-items: stretch; flex-direction: column; }
   .search-form { width: 100%; }
   .form-grid { grid-template-columns: 1fr; }
+  .cheat-modal .form-grid { grid-template-columns: 1fr; }
+  .cheat-current { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cheat-logs li { grid-template-columns: 66px minmax(0, 1fr) auto; }
   .modal-mask { padding: 10px; }
   .modal { max-height: calc(100vh - 20px); border-radius: 19px; }
   .modal__head, .modal__body { padding-left: 17px; padding-right: 17px; }

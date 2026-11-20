@@ -14,6 +14,10 @@
 //    POST / PUT / DELETE /api/admin/categories[/{id}]
 //    GET    /api/admin/tags                  标签列表
 //    POST / PUT / DELETE /api/admin/tags[/{id}]
+//    GET    /api/admin/users?page=&size=&keyword=
+//    PUT    /api/admin/users/{id}/permission { permission }
+//    GET    /api/admin/users/{id}/wallet     作弊台：钱包现状
+//    POST   /api/admin/users/{id}/cheat      作弊台：加金币 / 改属性
 //
 //  权限：没带令牌 -> 401（http 层会清 token）；普通用户 -> 403「需要管理员权限」
 // ============================================================
@@ -98,4 +102,28 @@ export async function fetchAdminUsers (opts = {}) {
 /** 修改权限：0=管理员，1=默认用户 */
 export async function updateUserPermission (id, permission) {
   return http.put('/admin/users/' + encodeURIComponent(id) + '/permission', { permission })
+}
+
+// ---------- 作弊台 ----------
+
+/**
+ * 读取某个账号的钱包现状（只读，不会推进体力恢复）
+ * -> { id, name, money, energy, energyMax, sleptToday, ownedCount, logs: [...] }
+ */
+export async function fetchUserWallet (id) {
+  return http.get('/admin/users/' + encodeURIComponent(id) + '/wallet')
+}
+
+/**
+ * 给某个账号加金币 / 改属性。
+ *
+ * @param {object} payload 只传要改的项，不传就是不改（后端忽略 null）
+ *   money / moneyDelta          金币绝对值 / 增量
+ *   energy / energyDelta        体力绝对值 / 增量（会被夹到上限内）
+ *   energyMax / energyMaxDelta  体力上限绝对值 / 增量
+ *   resetSleep: true            清掉「今天已睡」的限制
+ *   unlockAll: true             一键解锁全部付费书目
+ */
+export async function cheatUser (id, payload) {
+  return http.post('/admin/users/' + encodeURIComponent(id) + '/cheat', payload)
 }
