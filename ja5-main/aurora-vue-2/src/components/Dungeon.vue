@@ -69,260 +69,13 @@
 
     <!-- 区域舞台 -->
     <main class="realm__stage">
-      <svg class="realm__svg" :class="`is-${region}`" viewBox="0 0 1000 580" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-        <defs>
-          <radialGradient id="rGlow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="#ffd7e8" stop-opacity=".6" />
-            <stop offset="62%" stop-color="#c98ad0" stop-opacity=".2" />
-            <stop offset="100%" stop-color="#6d4f78" stop-opacity="0" />
-          </radialGradient>
-          <linearGradient id="rLake" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#c6dcf1" />
-            <stop offset="48%" stop-color="#a9c6e4" />
-            <stop offset="100%" stop-color="#8aa8d2" />
-          </linearGradient>
-          <linearGradient id="rLakeSky" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#fbf6fb" />
-            <stop offset="100%" stop-color="#e7eff9" />
-          </linearGradient>
-          <linearGradient id="rRoot" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#5b4250" />
-            <stop offset="100%" stop-color="#2c1f2c" />
-          </linearGradient>
-          <radialGradient id="rShrineBg" cx="50%" cy="46%" r="72%">
-            <stop offset="0%" stop-color="#fbf3fd" />
-            <stop offset="58%" stop-color="#eddcf6" />
-            <stop offset="100%" stop-color="#c9b0dd" />
-          </radialGradient>
-          <radialGradient id="rShrineBg" cx="50%" cy="46%" r="72%">
-            <stop offset="0%" stop-color="#fbf3fd" />
-            <stop offset="58%" stop-color="#eddcf6" />
-            <stop offset="100%" stop-color="#c9b0dd" />
-          </radialGradient>
-          <linearGradient id="rAltar" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stop-color="#fff6fb" />
-            <stop offset="100%" stop-color="#e8c7e6" />
-          </linearGradient>
-          <filter id="rSoft" x="-40%" y="-40%" width="180%" height="180%">
-            <feGaussianBlur stdDeviation="14" />
-          </filter>
-        </defs>
-
-        <!-- ============ 樱雾漫林：粉雾、弯曲小路、满地落樱 ============ -->
-        <g v-if="region === 'forest'">
-          <rect x="0" y="0" width="1000" height="580" fill="#f7eaf1" />
-          <path d="M0 300 Q160 250 320 292 Q480 334 640 288 Q820 238 1000 286 L1000 580 L0 580Z" fill="#eed2e2" opacity=".95" />
-          <path d="M0 382 Q180 330 360 372 Q540 414 720 366 Q880 324 1000 368 L1000 580 L0 580Z" fill="#e2c3d6" opacity=".92" />
-          <path d="M0 456 Q220 412 420 448 Q620 484 820 442 Q920 420 1000 436 L1000 580 L0 580Z" fill="#d3aec8" opacity=".92" />
-          <!-- 弯曲樱木小路 -->
-          <path d="M120 540 C240 500 300 470 420 442 C540 414 610 396 720 366 C820 340 880 320 960 300"
-                fill="none" stroke="#f8e9df" stroke-width="26" stroke-linecap="round" opacity=".85" />
-          <path d="M120 540 C240 500 300 470 420 442 C540 414 610 396 720 366 C820 340 880 320 960 300"
-                fill="none" stroke="#e3cbbd" stroke-width="2" stroke-dasharray="3 12" opacity=".8" />
-          <!-- 小樱树 -->
-          <g v-for="(t, i) in forestTrees" :key="`ft${i}`">
-            <ellipse :cx="t[0] + 4" :cy="t[1] + 4" :rx="26 * t[2]" :ry="8 * t[2]" fill="#a87c98" opacity=".18" />
-            <path :d="`M${t[0] - 4 * t[2]} ${t[1]} l${2 * t[2]} ${-40 * t[2]} h${4 * t[2]} l${2 * t[2]} ${40 * t[2]}Z`" fill="#8a6156" />
-            <ellipse :cx="t[0]" :cy="t[1] - 54 * t[2]" :rx="34 * t[2]" :ry="26 * t[2]" fill="#f7c2d4" opacity=".95" />
-            <ellipse :cx="t[0] - 16 * t[2]" :cy="t[1] - 46 * t[2]" :rx="20 * t[2]" :ry="16 * t[2]" fill="#ffd8e4" opacity=".9" />
-            <ellipse :cx="t[0] + 16 * t[2]" :cy="t[1] - 48 * t[2]" :rx="18 * t[2]" :ry="14 * t[2]" fill="#f9cbdd" opacity=".9" />
-          </g>
-          <!-- 地上的落樱 -->
-          <g fill="#f6b9cc" opacity=".75">
-            <ellipse v-for="(p, i) in groundPetals" :key="`gp${i}`" :cx="p[0]" :cy="p[1]" :rx="3.4" :ry="1.9" />
-          </g>
-          <!-- 前景草坡：压深一点，场景才有远近 -->
-          <path d="M-20 512 Q180 470 380 500 Q600 534 800 498 Q920 476 1020 496 L1020 600 L-20 600Z" fill="#cfb1c8" opacity=".55" />
-          <!-- 灌木 -->
-          <g v-for="(b, i) in forestBushes" :key="`fb${i}`">
-            <ellipse :cx="b[0]" :cy="b[1] + 3" :rx="b[2]" :ry="b[2] * 0.42" fill="#a87c98" opacity=".2" />
-            <ellipse :cx="b[0] - b[2] * 0.42" :cy="b[1]" :rx="b[2] * 0.62" :ry="b[2] * 0.5" fill="#e9aec6" />
-            <ellipse :cx="b[0] + b[2] * 0.36" :cy="b[1] - b[2] * 0.1" :rx="b[2] * 0.56" :ry="b[2] * 0.46" fill="#f3c2d5" />
-          </g>
-          <!-- 远景树影：只做轮廓，压住上半屏的空白 -->
-          <g opacity=".42">
-            <g v-for="(t, i) in farTrees" :key="`far${i}`">
-              <ellipse :cx="t[0]" :cy="t[1] - 30" :rx="t[2]" :ry="t[2] * 0.72" fill="#d9b3cb" />
-              <ellipse :cx="t[0] - t[2] * 0.5" :cy="t[1] - 20" :rx="t[2] * 0.62" :ry="t[2] * 0.46" fill="#e2c2d5" />
-              <path :d="`M${t[0] - 2} ${t[1]} v${-16}`" stroke="#a98099" stroke-width="3" />
-            </g>
-          </g>
-          <rect x="0" y="252" width="1000" height="90" fill="#fff6fb" opacity=".5" filter="url(#rSoft)" />
-
-          <!-- 远景树影：只做轮廓，压住上半屏的空白 -->
-          <g opacity=".42">
-            <g v-for="(t, i) in farTrees" :key="`far${i}`">
-              <ellipse :cx="t[0]" :cy="t[1] - 30" :rx="t[2]" :ry="t[2] * 0.72" fill="#d9b3cb" />
-              <ellipse :cx="t[0] - t[2] * 0.5" :cy="t[1] - 20" :rx="t[2] * 0.62" :ry="t[2] * 0.46" fill="#e2c2d5" />
-              <path :d="`M${t[0] - 2} ${t[1]} v${-16}`" stroke="#a98099" stroke-width="3" />
-            </g>
-          </g>
-          <rect x="0" y="252" width="1000" height="90" fill="#fff6fb" opacity=".5" filter="url(#rSoft)" />
-
-          <!-- 雾带 -->
-          <rect x="0" y="330" width="1000" height="120" fill="#fff2f8" opacity=".26" filter="url(#rSoft)" />
-          <rect x="0" y="430" width="1000" height="120" fill="#ffe8f2" opacity=".2" filter="url(#rSoft)" />
-        </g>
-
-        <!-- ============ 浮樱镜湖：半透明湖水、漂瓣小岛、荧光花草 ============ -->
-        <g v-else-if="region === 'lake'">
-          <rect x="0" y="0" width="1000" height="580" fill="#e7eff9" />
-          <rect x="0" y="0" width="1000" height="300" fill="url(#rLakeSky)" />
-          <circle cx="520" cy="300" r="360" fill="url(#rGlow)" />
-
-          <!-- 远岸：一条浅绿的坡 + 三棵远树，给湖一个「对岸」 -->
-          <path d="M-20 246 Q160 206 360 226 Q560 246 760 220 Q900 202 1020 224 L1020 300 L-20 300Z" fill="#cfe0c6" opacity=".8" />
-          <g opacity=".55">
-            <g v-for="(t, i) in lakeFarTrees" :key="`lt${i}`">
-              <ellipse :cx="t[0]" :cy="t[1] - 26" :rx="t[2]" :ry="t[2] * 0.66" fill="#e0b7cc" />
-              <path :d="`M${t[0] - 2} ${t[1]} v${-14}`" stroke="#a98a95" stroke-width="3" />
-            </g>
-          </g>
-
-          <!-- 湖面 -->
-          <ellipse cx="520" cy="336" rx="430" ry="186" fill="url(#rLake)" opacity=".95" />
-          <ellipse cx="520" cy="336" rx="430" ry="186" fill="none" stroke="#ffffff" stroke-width="2.4" opacity=".6" />
-          <ellipse cx="520" cy="336" rx="392" ry="162" fill="none" stroke="#ffffff" stroke-width="1" opacity=".35" />
-          <!-- 倒影：把岸边花树压扁画在水里 -->
-          <g opacity=".3" fill="#f3b9d0">
-            <ellipse cx="300" cy="390" rx="60" ry="18" />
-            <ellipse cx="720" cy="404" rx="70" ry="16" />
-            <ellipse cx="520" cy="420" rx="90" ry="14" />
-          </g>
-          <!-- 水面波纹 -->
-          <g stroke="#ffffff" fill="none" opacity=".45">
-            <path d="M260 312 q40 -10 80 0 q40 10 80 0" />
-            <path d="M420 356 q46 -12 92 0 q46 12 92 0" />
-            <path d="M640 322 q36 -9 72 0 q36 9 72 0" />
-            <path d="M340 404 q50 -12 100 0" />
-          </g>
-          <!-- 漂浮樱瓣小岛 -->
-          <g v-for="(i, idx) in floatIslands" :key="`fi${idx}`">
-            <ellipse :cx="i[0]" :cy="i[1]" :rx="i[2]" :ry="i[2] * 0.34" fill="#f3d7e4" />
-            <ellipse :cx="i[0]" :cy="i[1] - i[2] * 0.22" :rx="i[2] * 0.92" :ry="i[2] * 0.3" fill="#fbe8f0" />
-            <ellipse :cx="i[0] - i[2] * 0.3" :cy="i[1] - i[2] * 0.34" :rx="i[2] * 0.34" :ry="i[2] * 0.16" fill="#ffd9e7" />
-            <circle :cx="i[0] + i[2] * 0.3" :cy="i[1] - i[2] * 0.3" r="3" fill="#fff3f8" />
-          </g>
-          <!-- 湖边荧光花草 -->
-          <g v-for="(f, i) in glowFlowers" :key="`gf${i}`">
-            <circle :cx="f[0]" :cy="f[1]" r="14" fill="#d8f3ff" opacity=".5" />
-            <circle :cx="f[0]" :cy="f[1]" r="4.2" :fill="i % 2 ? '#dff6ff' : '#ffe6f4'" />
-            <path :d="`M${f[0]} ${f[1] + 4} v10`" stroke="#9ec6b4" stroke-width="1.6" />
-          </g>
-          <!-- 岸线 -->
-          <path d="M90 470 Q220 420 360 452 Q480 480 560 462 Q700 436 910 468" fill="none" stroke="#e8d3e2" stroke-width="10" opacity=".9" stroke-linecap="round" />
-        </g>
-
-        <!-- ============ 古樱根域：交错根系、石壁微光 ============ -->
-        <g v-else-if="region === 'roots'">
-          <rect x="0" y="0" width="1000" height="580" fill="#2b1f2c" />
-          <radialGradient id="rRootGlow" cx="50%" cy="42%" r="62%">
-            <stop offset="0%" stop-color="#6b4a63" />
-            <stop offset="100%" stop-color="#241a26" />
-          </radialGradient>
-          <rect x="0" y="0" width="1000" height="580" fill="url(#rRootGlow)" />
-          <!-- 地宫地面 -->
-          <path d="M60 470 Q200 420 380 442 Q560 464 720 434 Q860 408 950 440 L950 580 L60 580Z" fill="#3b2b39" />
-          <path d="M60 470 Q200 420 380 442 Q560 464 720 434 Q860 408 950 440" fill="none" stroke="#523b4e" stroke-width="3" opacity=".8" />
-          <!-- 交错的树根 -->
-          <g stroke="#4d3446" fill="none" stroke-linecap="round">
-            <path d="M-20 120 C120 150 180 260 150 380 C130 470 190 520 260 560" stroke-width="26" />
-            <path d="M1020 96 C880 132 820 240 850 356 C874 450 812 512 742 556" stroke-width="26" />
-            <path d="M420 -20 C440 90 380 160 300 210 C230 254 214 330 250 396" stroke-width="20" />
-            <path d="M600 -20 C590 100 650 160 724 214 C790 262 800 336 764 404" stroke-width="20" />
-            <path d="M120 300 C240 320 300 380 470 372 C620 364 700 330 860 344" stroke-width="16" opacity=".9" />
-          </g>
-          <!-- 根上的微光苔 -->
-          <g fill="#a9e0c2" opacity=".55">
-            <circle v-for="(m, i) in mossDots" :key="`md${i}`" :cx="m[0]" :cy="m[1]" :r="m[2]" />
-          </g>
-          <!-- 石壁 -->
-          <path d="M-10 0 L120 0 L96 250 L40 300 L-10 280Z" fill="#2a1d2b" />
-          <path d="M1010 0 L880 0 L904 260 L960 300 L1010 276Z" fill="#2a1d2b" />
-          <!-- 幽暗柔光 -->
-          <circle cx="500" cy="300" r="240" fill="url(#rGlow)" opacity=".5" />
-        </g>
-
-        <!-- ============ 灵樱神域：悬浮平台 + 祭坛 + 旋转花瓣法阵 ============ -->
-        <g v-else>
-          <rect x="0" y="0" width="1000" height="580" fill="#e6d8f3" />
-          <rect x="0" y="0" width="1000" height="580" fill="url(#rShrineBg)" />
-          <circle cx="520" cy="286" r="360" fill="url(#rGlow)" />
-          <!-- 远处的浮空小平台 -->
-          <g opacity=".55">
-            <ellipse cx="180" cy="200" rx="70" ry="20" fill="#e7d9f0" />
-            <ellipse cx="820" cy="170" rx="60" ry="17" fill="#e7d9f0" />
-            <ellipse cx="880" cy="380" rx="80" ry="22" fill="#e2d3ec" />
-          </g>
-          <!-- 主平台：加一圈深边，才不像白纸 -->
-          <ellipse cx="520" cy="428" rx="330" ry="104" fill="#b79ccc" opacity=".55" filter="url(#rSoft)" />
-          <ellipse cx="520" cy="408" rx="318" ry="100" fill="#c9aedd" />
-          <ellipse cx="520" cy="398" rx="310" ry="96" fill="#efe0f4" />
-          <ellipse cx="520" cy="398" rx="310" ry="96" fill="none" stroke="#d3b4e2" stroke-width="3" />
-          <ellipse cx="520" cy="392" rx="250" ry="76" fill="#f8eef9" />
-          <ellipse cx="520" cy="392" rx="250" ry="76" fill="none" stroke="#e2c6ea" stroke-width="2" />
-          <!-- 圆形祭坛 -->
-          <ellipse cx="520" cy="386" rx="150" ry="46" fill="url(#rAltar)" />
-          <ellipse cx="520" cy="380" rx="128" ry="38" fill="none" stroke="#d9b6d9" stroke-width="2" />
-          <ellipse cx="520" cy="380" rx="96" ry="28" fill="none" stroke="#e3c6e3" stroke-width="1.6" />
-          <!-- 旋转花瓣法阵 -->
-          <g class="sigil" style="transform-origin: 520px 372px">
-            <circle cx="520" cy="372" r="118" fill="none" stroke="#e7b6dd" stroke-width="1.2" opacity=".7" stroke-dasharray="8 10" />
-            <circle cx="520" cy="372" r="74" fill="none" stroke="#dcb6f0" stroke-width="1" opacity=".6" stroke-dasharray="6 9" />
-            <ellipse v-for="i in 12" :key="`sg${i}`"
-                     cx="520" cy="300" rx="7.5" ry="12"
-                     fill="#ff9fc6" opacity=".92"
-                     :transform="`rotate(${i * 30} 520 372)`" />
-            <ellipse v-for="i in 12" :key="`sg2${i}`"
-                     cx="520" cy="262" rx="5.5" ry="8.5"
-                     fill="#c79bf0" opacity=".85"
-                     :transform="`rotate(${i * 30 + 15} 520 372)`" />
-            <ellipse v-for="i in 8" :key="`sg3${i}`"
-                     cx="520" cy="346" rx="4.2" ry="6.4"
-                     fill="#fff0f6" opacity=".9"
-                     :transform="`rotate(${i * 45 + 22} 520 372)`" />
-          </g>
-          <!-- 平台边缘的柱子 -->
-          <g v-for="(c, i) in pillars" :key="`pl${i}`">
-            <rect :x="c[0] - 7" :y="c[1] - 70" width="14" height="70" rx="4" fill="#e8d6ea" />
-            <rect :x="c[0] - 9" :y="c[1] - 76" width="18" height="9" rx="3" fill="#d3b9d8" />
-            <circle :cx="c[0]" :cy="c[1] - 82" r="6" fill="#ffe3f1" />
-          </g>
-        </g>
-
-        <!-- 遭遇点：这一区域的怪 / 宝箱 / 密道 -->
-        <g
-          v-for="e in currentEncounters"
-          :key="e.id"
-          class="enc"
-          :class="{ 'is-done': isDone(e.id), 'is-locked': e.need && !meetsNeed(e) }"
-          :transform="`translate(${e.x}, ${e.y})`"
-          role="button"
-          tabindex="0"
-          :aria-label="e.name"
-          @click="engage(e)"
-          @keyup.enter="engage(e)"
-        >
-          <ellipse cx="0" cy="14" rx="30" ry="10" fill="#1d1327" opacity=".22" />
-          <circle r="26" fill="rgba(255, 252, 254, .97)" :stroke="encStroke(e)" stroke-width="2.8" />
-          <circle r="30" fill="none" stroke="rgba(255, 255, 255, .8)" stroke-width="1" />
-          <circle v-if="!isDone(e.id)" r="34" fill="none" :stroke="encStroke(e)" stroke-width="1.2" opacity=".55" class="enc__ring" />
-          <path
-            :d="ENC_ICON[e.kind]"
-            fill="none"
-            :stroke="isDone(e.id) ? 'rgba(150, 120, 140, .5)' : encFill(e)"
-            stroke-width="2.4"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-          <text y="46" text-anchor="middle" class="enc__label" :class="{ 'is-dim': isDone(e.id) }">{{ e.name }}</text>
-          <text v-if="e.need" y="60" text-anchor="middle" class="enc__need">{{ e.needLabel }}</text>
-          <g v-if="isDone(e.id)">
-            <circle cx="20" cy="-20" r="8" fill="#8fd3a8" />
-            <path d="M16 -20.5 l3 3.4 6 -6.6" fill="none" stroke="#173022" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-          </g>
-        </g>
-      </svg>
+      <RealmMap
+        :region="region"
+        :encounters="currentEncounters"
+        :is-done="isDone"
+        :meets-need="meetsNeed"
+        @engage="engage"
+      />
 
       <!-- 区域说明 + 这一趟的记录 -->
       <aside class="realm__side">
@@ -456,6 +209,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { createPetalField } from '../composables/usePetals'
 import BattleScene from './dungeon/BattleScene.vue'
+import RealmMap from './dungeon/RealmMap.vue'
 import { SKILLS, mpOf, MP_REGEN, freshCooldowns } from './dungeon/skills'
 import { combat, gainMany, nudgeMood, setPanelMode, stats, STATS } from '../composables/useStats'
 
@@ -519,27 +273,27 @@ const FOES = {
 /* 每个区域的遭遇点 */
 const ENCOUNTERS = {
   forest: [
-    { id: 'f1', kind: 'foe', name: '樱花木傀儡', foe: 'puppet', x: 300, y: 356 },
-    { id: 'f2', kind: 'foe', name: '幼年樱雾精灵', foe: 'sprite', x: 512, y: 300 },
-    { id: 'f3', kind: 'foe', name: '樱花木傀儡', foe: 'puppet', x: 706, y: 344 },
-    { id: 'f4', kind: 'event', name: '记忆花瓣', x: 420, y: 424 }
+    { id: 'f1', kind: 'foe', name: '樱花木傀儡', foe: 'puppet', x: 4.4, y: 6.6 },
+    { id: 'f2', kind: 'foe', name: '幼年樱雾精灵', foe: 'sprite', x: 9.4, y: 4.4 },
+    { id: 'f3', kind: 'foe', name: '樱花木傀儡', foe: 'puppet', x: 12.0, y: 8.6 },
+    { id: 'f4', kind: 'event', name: '记忆花瓣', x: 6.4, y: 10.8 }
   ],
   lake: [
-    { id: 'l1', kind: 'foe', name: '花瓣蜂群', foe: 'swarm', x: 356, y: 316 },
-    { id: 'l2', kind: 'foe', name: '湖影幻妖', foe: 'wraith', x: 660, y: 288 },
-    { id: 'l3', kind: 'chest', name: '湖中宝箱', need: 14, needLabel: '智力 14', x: 508, y: 402 },
-    { id: 'l4', kind: 'event', name: '湖面微光', need: 10, needLabel: '幸运 10', x: 792, y: 366 }
+    { id: 'l1', kind: 'foe', name: '花瓣蜂群', foe: 'swarm', x: 4.8, y: 5.4 },
+    { id: 'l2', kind: 'foe', name: '湖影幻妖', foe: 'wraith', x: 10.6, y: 5.8 },
+    { id: 'l3', kind: 'chest', name: '湖中宝箱', need: 14, needLabel: '智力 14', x: 8.2, y: 9.8 },
+    { id: 'l4', kind: 'event', name: '湖面微光', need: 10, needLabel: '幸运 10', x: 12.4, y: 9.4 }
   ],
   roots: [
-    { id: 'r1', kind: 'foe', name: '青苔石魔', foe: 'golem', x: 300, y: 404 },
-    { id: 'r2', kind: 'foe', name: '根须守卫', foe: 'warden', x: 640, y: 356 },
-    { id: 'r3', kind: 'secret', name: '根系密道', need: 18, needLabel: '智力 18', x: 470, y: 250 },
-    { id: 'r4', kind: 'event', name: '隐藏的根室', need: 12, needLabel: '幸运 12', x: 806, y: 410 }
+    { id: 'r1', kind: 'foe', name: '青苔石魔', foe: 'golem', x: 4.2, y: 7.8 },
+    { id: 'r2', kind: 'foe', name: '根须守卫', foe: 'warden', x: 10.4, y: 8.6 },
+    { id: 'r3', kind: 'secret', name: '根系密道', need: 18, needLabel: '智力 18', x: 7.0, y: 3.8 },
+    { id: 'r4', kind: 'event', name: '隐藏的根室', need: 12, needLabel: '幸运 12', x: 12.6, y: 10.4 }
   ],
   shrine: [
-    { id: 's1', kind: 'foe', name: '樱影护卫', foe: 'elite', x: 350, y: 352 },
-    { id: 's2', kind: 'foe', name: '樱影护卫', foe: 'elite', x: 700, y: 352 },
-    { id: 's3', kind: 'boss', name: '樱之守护灵', foe: 'guardian', x: 524, y: 252 }
+    { id: 's1', kind: 'foe', name: '樱影护卫', foe: 'elite', x: 4.6, y: 7.0 },
+    { id: 's2', kind: 'foe', name: '樱影护卫', foe: 'elite', x: 11.4, y: 7.0 },
+    { id: 's3', kind: 'boss', name: '樱之守护灵', foe: 'guardian', x: 8.0, y: 6.4 }
   ]
 }
 
@@ -621,6 +375,12 @@ function encFill (e) {
 }
 
 /* ---------------- 切区域 ---------------- */
+/** 走到樱枝门：切下一个区域（顺序转一圈） */
+function nextRegion () {
+  const i = REGIONS.findIndex((r) => r.key === region.value)
+  switchRegion(REGIONS[(i + 1) % REGIONS.length].key)
+}
+
 function switchRegion (key) {
   if (region.value === key) return
   region.value = key
@@ -679,6 +439,7 @@ const canCharm = computed(() => {
 })
 
 function engage (e) {
+  if (e.kind === 'portal') { nextRegion(); return }
   if (isDone(e.id)) return
   if (e.kind === 'foe' || e.kind === 'boss') {
     startBattle(e)
