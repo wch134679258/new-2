@@ -353,21 +353,27 @@
 
           <p class="battle__line">{{ battle.enemy.line }}</p>
 
-          <div class="battle__foe">
-            <span class="battle__foe-name">{{ battle.enemy.name }}</span>
-            <span class="battle__foe-hp">{{ Math.max(0, battle.enemyHp) }}<i>/{{ battle.enemy.hp }}</i></span>
-          </div>
-          <div class="battle__bar battle__bar--foe">
-            <i :style="{ width: foePercent + '%', background: battle.enemy.color }"></i>
-          </div>
-
-          <div class="battle__me">
-            <span>{{ buff ? '凝神中 · 下一击必暴' : '你' }}</span>
-            <span>{{ Math.max(0, hp) }}<i>/{{ maxHp }}</i></span>
-          </div>
-          <div class="battle__bar battle__bar--me">
-            <i :style="{ width: hpPercent + '%' }"></i>
-          </div>
+          <!-- 战斗场景：怪物、玩家、影子、头顶血条、飘字、斩击弧线都在这一个组件里 -->
+          <BattleScene
+            :foe="{
+              key: battle.enc.foe,
+              name: battle.enemy.name,
+              color: battle.enemy.color,
+              hp: battle.enemy.hp,
+              boss: !!battle.enemy.boss
+            }"
+            :foe-hp="battle.enemyHp"
+            :foe-percent="foePercent"
+            :hp="hp"
+            :max-hp="maxHp"
+            :hp-percent="hpPercent"
+            :buff="buff"
+            :foe-state="foeState"
+            :me-state="meState"
+            :slash-key="slashKey"
+            :entering="entering"
+            :pops="pops"
+          />
 
           <ul class="battle__log" aria-live="polite">
             <li v-for="(l, i) in battle.log" :key="`bl${i}`" :class="`is-${l.kind}`">{{ l.text }}</li>
@@ -423,6 +429,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { createPetalField } from '../composables/usePetals'
+import BattleScene from './dungeon/BattleScene.vue'
 import { combat, gainMany, nudgeMood, setPanelMode, stats, STATS } from '../composables/useStats'
 
 const emit = defineEmits(['exit-realm', 'navigate'])
@@ -596,6 +603,24 @@ watch(region, () => { battle.value = null; sheet.value = null })
 
 /* ---------------- 战斗 ---------------- */
 const battle = ref(null)
+/* 战斗表现层：飘字 / 受击 / 斩击 / 入场。数值一律不动，只加视觉时序 */
+const foeState = ref('')      // '' | 'attack' | 'hit' | 'crit' | 'dead'
+const meState = ref('')       // '' | 'attack' | 'hit'
+const slashKey = ref(0)       // 每次出手 +1，BattleScene 换 key 重播弧线
+const pops = ref([])          // 伤害飘字
+const entering = ref(false)   // 入场动画期间锁按钮
+let popSeq = 0
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+/** 在目标身上弹一个飘字；760ms 后自己清掉 */
+function popAt (target, text, kind = 'hit') {
+  const id = ++popSeq
+  pops.value.push({ id, target, text, kind })
+  setTimeout(() => {
+    const i = pops.value.findIndex((p) => p.id === id)
+    if (i >= 0) pops.value.splice(i, 1)
+  }, 760)
+}
 // 事件/宝箱/密道的小弹窗（模板里 v-if="sheet" 用它，漏声明会直接白屏）
 const sheet = ref(null)
 const bossCleared = ref(false)
@@ -639,7 +664,15 @@ function startBattle (e) {
   }
   buff.value = false
   focusUsed.value = 0
+  foeState.value = ''
+  meState.value = ''
+  pops.value = []
+  slashKey.value = 0
   push('foe', `遇上 ${foe.name}。`)
+  // 入场 440ms：场景压暗 + 双方从两侧滑进来，这期间按钮按不动
+  entering.value = true
+  busy.value = true
+  setTimeout(() => { entering.value = false; busy.value = false }, 460)
 }
 
 function pushBattle (kind, text) {
@@ -650,21 +683,41 @@ function push (kind, text) {
   if (log.value.length > 7) log.value.pop()
 }
 
-function attack () {
+async function attack () {
   if (!battle.value || busy.value || over.value) return
   busy.value = true
+  // 1) 前冲 + 斩击弧线（170ms）—— 弧线描完了才掉血，手感才对得上
+  meState.value = 'attack'
+  slashKey.value += 1
+  await sleep(170)
+
+  // 2) 结算（数值与旧版完全一致）
   const e = battle.value.enemy
   const isCrit = buff.value || Math.random() * 100 < crit.value
   const raw = atk.value * (0.85 + Math.random() * 0.3) - e.def * 0.5
   const dmg = Math.max(2, Math.round(raw * (isCrit ? 1.7 : 1)))
   battle.value.enemyHp -= dmg
   pushBattle(isCrit ? 'crit' : 'hit', isCrit ? `暴击！${dmg} 点伤害。` : `你斩出一刀，${dmg} 点伤害。`)
+  popAt('foe', `-${dmg}`, isCrit ? 'crit' : 'hit')
+  foeState.value = isCrit ? 'crit' : 'hit'
   buff.value = false
+
+  // 3) 受击反应 220ms
+  await sleep(200)
+  meState.value = ''
+
   if (battle.value.enemyHp <= 0) {
-    setTimeout(() => { battle.value.over = true; busy.value = false; onWin() }, 320)
+    // 4) 死亡：分部件散开，散完才结算
+    foeState.value = 'dead'
+    await sleep(560)
+    battle.value.over = true
+    busy.value = false
+    onWin()
     return
   }
-  setTimeout(foeTurn, 380)
+  foeState.value = ''
+  await sleep(60)
+  foeTurn()
 }
 
 function focus () {
@@ -673,15 +726,23 @@ function focus () {
   focusUsed.value += 1
   pushBattle('buff', '你凝住呼吸，下一击必定暴击。')
   busy.value = true
+  // 凝神环是 BattleScene 里 buff 那条虚线环，这里只留时间给玩家看见它
   setTimeout(foeTurn, 420)
 }
 
-function foeTurn () {
+async function foeTurn () {
   const b = battle.value
   if (!b || b.over) { busy.value = false; return }
   const e = b.enemy
+  // 怪物先往前扑一下，再判闪避 —— 只影响观感，判定顺序与旧版一致
+  foeState.value = 'attack'
+  await sleep(150)
+  foeState.value = ''
+
   if (Math.random() * 100 < eva.value) {
     pushBattle('dodge', `${e.name} 扑了个空 —— 你侧身让开。`)
+    popAt('foe', '未命中', 'miss')
+    await sleep(260)
     endTurn()
     return
   }
@@ -690,6 +751,10 @@ function foeTurn () {
   const dmg = Math.max(1, Math.round(raw * (isCrit ? 1.6 : 1)))
   hp.value -= dmg
   pushBattle(isCrit ? 'crit' : 'hit', isCrit ? `${e.name} 重击，${dmg} 点伤害。` : `${e.name} 打来，${dmg} 点伤害。`)
+  popAt('me', `-${dmg}`, isCrit ? 'crit' : 'hit')
+  meState.value = 'hit'
+  await sleep(320)
+  meState.value = ''
   if (hp.value <= 0) {
     hp.value = 0
     b.over = true
@@ -726,6 +791,10 @@ function closeBattle () {
   const wasBoss = bossCleared.value
   battle.value = null
   busy.value = false
+  foeState.value = ''
+  meState.value = ''
+  pops.value = []
+  entering.value = false
   if (!wasBoss) return
   bossCleared.value = false
   sheet.value = {
@@ -744,12 +813,18 @@ function flee () {
   hp.value = Math.max(1, hp.value - 3)
   battle.value = null
   busy.value = false
+  foeState.value = ''
+  meState.value = ''
+  pops.value = []
   push('mute', '退开了，心跳还没慢下去。')
 }
 
 function loseOut () {
   battle.value = null
   busy.value = false
+  foeState.value = ''
+  meState.value = ''
+  pops.value = []
   emit('exit-realm', { reason: 'lose', petals: petals.value })
 }
 
@@ -764,6 +839,9 @@ function charmSkip () {
   done.value = new Set([...done.value, `${region.value}:${b.enc.id}`])
   battle.value = null
   busy.value = false
+  foeState.value = ''
+  meState.value = ''
+  pops.value = []
   push('good', `你和 ${b.enemy.name} 说了几句，它让开了路，还留下 ${gainPetal} 片花瓣。`)
   sheet.value = {
     tag: 'CHARM · 交涉成功',
