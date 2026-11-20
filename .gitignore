@@ -49,3 +49,9 @@ ja5-main/art-source/
 ja5-main/.e2e-shots/
 _shots/
 dist-build/
+
+# 本地像素稿预览与裁图临时文件（截图上百 MB，勿入库）
+ja5-main/aurora-vue-2/.preview/
+ja5-main/aurora-vue-2/__crop.html
+ja5-main/aurora-vue-2/__town_preview.html
+ja5-main/aurora-vue-2/src/__town_preview.js
